@@ -1,0 +1,36 @@
+# Development overrides for WindWays Platform
+# This file is automatically loaded by Docker Compose for development
+
+services:
+  # Backend development overrides
+  backend:
+    build:
+      target: development
+    environment:
+      LOG_LEVEL: DEBUG
+      ENABLE_DEBUG_MODE: true
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    command: uvicorn auth_module.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend development overrides
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend/web:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # PostgreSQL development overrides
+  postgres:
+    environment:
+      POSTGRES_DB: windways_auth_dev
+    ports:
+      - "5433:5432"  # Use different port to avoid conflicts
+
+  # Redis development overrides
+  redis:
+    ports:
+      - "6380:6379"  # Use different port to avoid conflicts

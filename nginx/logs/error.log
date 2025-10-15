@@ -1,0 +1,1 @@
+2025/10/15 05:26:38 [error] 29#29: *82 upstream timed out (110: Operation timed out) while reading response header from upstream, client: 192.168.65.1, server: localhost, request: "GET /register?_rsc=1xkln HTTP/1.1", upstream: "http://172.20.0.5:3000/register?_rsc=1xkln", host: "localhost", referrer: "http://localhost/register"

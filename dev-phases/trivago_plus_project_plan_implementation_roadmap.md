@@ -1,12 +1,12 @@
-# Trivago-Plus — Project Plan & Implementation Roadmap
+# WindWays — Project Plan & Implementation Roadmap
 
-> A detailed document to build a Trivago-like meta-search + booking platform with AI-powered trip planning, experiences, and multi-tenant features for travel agencies/hotels.
+> A detailed document to build a WindWays meta-search + booking platform with AI-powered trip planning, experiences, and multi-tenant features for travel agencies/hotels.
 
 ---
 
 ## 1. Executive Summary
 
-**Product name:** Trivago-Plus (working name)
+**Product name:** WindWays
 
 **Goal:** Build a meta-search and booking comparison platform that aggregates accommodation offers from multiple providers, enriches results with reviews and local experiences, and adds value through AI-powered itinerary planning, personalization, and a multi-tenant portal for agencies and hotels.
 
