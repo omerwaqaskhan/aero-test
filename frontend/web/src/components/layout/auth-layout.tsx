@@ -1,4 +1,5 @@
 import { ReactNode } from "react"
+import { CarouselText } from "@/components/ui/carousel"
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -7,6 +8,14 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
+  // Appealing travel-related carousel texts
+  const carouselTexts = [
+    "Where every journey finds its way",
+    "Discover the world, one adventure at a time",
+    "Your gateway to extraordinary experiences",
+    "Unlock the magic of travel with us"
+  ]
+
   return (
     <div className="min-h-screen relative">
       {/* Full Screen Background Image */}
@@ -23,18 +32,20 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       {/* Content Container - Split Layout */}
       <div className="relative z-10 min-h-screen flex">
         {/* Left Side - Branding */}
-        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center px-8">
+        <div className="hidden lg:flex lg:w-2/3 flex-col justify-center items-center px-8">
           <div className="text-center max-w-md">
-            <h1 className="text-5xl font-bold text-white mb-4">
+            <h1 className="text-5xl font-bold text-white mb-2">
               WindWays
             </h1>
-            <p className="text-white/90 text-xl mb-8">
-              Where every journey finds its way
-            </p>
-            <div className="text-white/80 text-lg space-y-2">
-              <p>Discover amazing destinations</p>
-              <p>Plan your perfect trip</p>
-              <p>Create unforgettable memories</p>
+            <CarouselText 
+              texts={carouselTexts}
+              interval={4000}
+              className="h-14"
+            />
+            <div className="text-white/80 text-lg">
+              <p>Discover amazing destinations, Plan your perfect trip, Create unforgettable memories!</p>
+              {/* <p>Plan your perfect trip</p> */}
+              {/* <p>Create unforgettable memories</p> */}
             </div>
           </div>
         </div>
