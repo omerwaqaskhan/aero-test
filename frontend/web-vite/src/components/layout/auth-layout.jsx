@@ -11,10 +11,10 @@ export function AuthLayout({ children, title, subtitle }) {
   ]
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative overflow-hidden">
       {/* Full Screen Background with gradient fallback and lazy-loaded image */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900" />
-      <LazyBackground src="/images/bg.jpg" />
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900" />
+      <LazyBackground key="bg-image" src="/images/bg.jpg" />
 
       {/* Content Container - Split Layout */}
       <div className="relative z-10 min-h-screen flex">
@@ -31,14 +31,12 @@ export function AuthLayout({ children, title, subtitle }) {
             />
             <div className="text-white/80 text-lg">
               <p>Discover amazing destinations, Plan your perfect trip, Create unforgettable memories!</p>
-              {/* <p>Plan your perfect trip</p> */}
-              {/* <p>Create unforgettable memories</p> */}
             </div>
           </div>
         </div>
 
         {/* Right Side - Form */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-8">
+        <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-8 overflow-y-auto">
           <div className="w-full max-w-md">
             {/* Semi-transparent form box */}
             <div className="bg-black/70 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
