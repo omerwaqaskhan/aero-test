@@ -53,7 +53,7 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d --scale ba
 - **Features**: Auto-reload in development, multiple workers in production
 
 ### Frontend Service
-- **Image**: Next.js with standalone output
+- **Image**: React + Vite with optimized build
 - **Port**: 3000
 - **Health Check**: HTTP endpoint `/`
 - **Resources**: 512MB memory, 0.25 CPU (production)

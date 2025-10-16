@@ -33,6 +33,12 @@ services:
 
   # Frontend production overrides
   frontend:
+    build:
+      context: ./frontend/web-vite
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "3001:80"
     deploy:
       replicas: 2
       resources:
@@ -85,6 +91,10 @@ services:
 
   # Nginx production overrides
   nginx:
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
     deploy:
       resources:
         limits:

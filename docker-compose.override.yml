@@ -19,9 +19,11 @@ services:
     build:
       target: development
     volumes:
-      - ./frontend/web:/app
+      - ./frontend/web-vite:/app
       - /app/node_modules
-    command: npm run dev
+    command: npm run dev -- --host 0.0.0.0 --port 3000
+    ports:
+      - "3002:3000"  # Optional: direct access to Vite dev server on 3002
 
   # PostgreSQL development overrides
   postgres:

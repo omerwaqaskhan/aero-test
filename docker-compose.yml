@@ -7,7 +7,7 @@ services:
     image: postgres:16-alpine
     container_name: windways-postgres
     environment:
-      POSTGRES_DB: windways_auth
+      POSTGRES_DB: windways_auth_dev
       POSTGRES_USER: windways_user
       POSTGRES_PASSWORD: windways_password
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
@@ -16,7 +16,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U windways_user -d windways_auth"]
+      test: ["CMD-SHELL", "pg_isready -U windways_user -d windways_auth_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,7 +53,7 @@ services:
     container_name: windways-backend
     environment:
       # Database
-      DATABASE_URL: postgresql://windways_user:windways_password@postgres:5432/windways_auth
+      DATABASE_URL: postgresql://windways_user:windways_password@postgres:5432/windways_auth_dev
       DATABASE_POOL_SIZE: 10
       DATABASE_MAX_OVERFLOW: 20
       
@@ -168,12 +168,11 @@ services:
   # WindWays Frontend
   frontend:
     build:
-      context: ./frontend/web
+      context: ./frontend/web-vite
       dockerfile: Dockerfile
-      target: production
+      target: development
     container_name: windways-frontend
-    ports:
-      - "3000:3000"
+    # No host port binding in base; Nginx will proxy to the container
     depends_on:
       - backend
     healthcheck:
