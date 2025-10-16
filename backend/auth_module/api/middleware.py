@@ -31,7 +31,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             
             # Add security headers
             response = await call_next(request)
-            self._add_security_headers(response)
+            self._add_security_headers(response, request)
             
             return response
             
@@ -109,9 +109,18 @@ class TenantMiddleware(BaseHTTPMiddleware):
         
         return self.default_tenant_slug
     
-    def _add_security_headers(self, response):
+    def _add_security_headers(self, response, request: Request):
         """Add security headers to response."""
-        headers = SecurityHeaders.get_security_headers()
+        # Skip CSP headers for documentation endpoints to allow external CDN resources
+        path = request.url.path
+        if path in ["/docs", "/redoc", "/openapi.json"]:
+            headers = SecurityHeaders.get_security_headers()
+            # Remove CSP header for docs endpoints
+            if "Content-Security-Policy" in headers:
+                del headers["Content-Security-Policy"]
+        else:
+            headers = SecurityHeaders.get_security_headers()
+        
         for header, value in headers.items():
             response.headers[header] = value
 
@@ -125,6 +134,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/health",
             "/metrics",
             "/docs",
+            "/redoc",
             "/openapi.json",
             "/api/v1/auth/register",
             "/api/v1/auth/login",
