@@ -1,13 +1,17 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
+import { useAuth } from "../../contexts/auth-context"
+import { Eye, EyeOff } from "lucide-react"
 
 export function LoginForm() {
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -21,11 +25,14 @@ export function LoginForm() {
     e.preventDefault()
     setIsLoading(true)
     
-    // Simulate login
-    setTimeout(() => {
+    try {
+      await login(formData.email, formData.password, formData.rememberMe)
+    } catch (error) {
+      // Error handling is done in the auth context
+      console.error("Login error:", error)
+    } finally {
       setIsLoading(false)
-      console.log("Login attempt:", formData)
-    }, 1000)
+    }
   }
 
   return (
@@ -50,16 +57,30 @@ export function LoginForm() {
         <label htmlFor="password" className="block text-sm font-medium text-gray-200 mb-2">
           Password
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          value={formData.password}
-          onChange={handleInputChange}
-          placeholder="Enter your password"
-          className="w-full px-4 py-3 bg-white/10 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
-          disabled={isLoading}
-        />
+        <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            value={formData.password}
+            onChange={handleInputChange}
+            placeholder="Enter your password"
+            className="w-full px-4 py-3 pr-12 bg-white/10 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none"
+            disabled={isLoading}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+            disabled={isLoading}
+          >
+            {showPassword ? (
+              <EyeOff className="h-5 w-5" />
+            ) : (
+              <Eye className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">

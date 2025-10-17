@@ -19,20 +19,20 @@ export function ToastProvider({ children }) {
     setToasts((prev) => prev.filter((toast) => toast.id !== id))
   }, [])
 
-  const success = useCallback((title, description) => {
-    addToast({ type: "success", title, description })
+  const success = useCallback((title, description, duration = 5000) => {
+    addToast({ type: "success", title, description, duration })
   }, [addToast])
 
-  const error = useCallback((title, description) => {
-    addToast({ type: "error", title, description })
+  const error = useCallback((title, description, duration = 5000) => {
+    addToast({ type: "error", title, description, duration })
   }, [addToast])
 
-  const warning = useCallback((title, description) => {
-    addToast({ type: "warning", title, description })
+  const warning = useCallback((title, description, duration = 5000) => {
+    addToast({ type: "warning", title, description, duration })
   }, [addToast])
 
-  const info = useCallback((title, description) => {
-    addToast({ type: "info", title, description })
+  const info = useCallback((title, description, duration = 5000) => {
+    addToast({ type: "info", title, description, duration })
   }, [addToast])
 
   return (

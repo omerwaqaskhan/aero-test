@@ -6,10 +6,21 @@ import { apiClient, ApiError } from "./api-client"
 export class AuthApi {
   async login(credentials) {
     try {
-      const response = await apiClient.post("/api/v1/auth/login", {
+      const response = await apiClient.post("/v1/auth/login", {
         ...credentials,
         tenant_slug: "windways" // Default tenant for now
       })
+      
+      // Extract nested data from backend response
+      if (response.data && response.data.data) {
+        return {
+          user: response.data.data.user,
+          access_token: response.data.data.tokens.access_token,
+          refresh_token: response.data.data.tokens.refresh_token,
+          expires_in: response.data.data.tokens.expires_in
+        }
+      }
+      
       return response.data
     } catch (error) {
       if (error instanceof ApiError) {
@@ -21,7 +32,7 @@ export class AuthApi {
 
   async register(userData) {
     try {
-      const response = await apiClient.post("/api/v1/auth/register", {
+      const response = await apiClient.post("/v1/auth/register", {
         ...userData,
         tenant_slug: "windways" // Default tenant for now
       })
@@ -36,7 +47,7 @@ export class AuthApi {
 
   async forgotPassword(data) {
     try {
-      const response = await apiClient.post("/api/v1/auth/forgot-password", data)
+      const response = await apiClient.post("/v1/auth/forgot-password", data)
       return response.data
     } catch (error) {
       if (error instanceof ApiError) {
@@ -48,7 +59,7 @@ export class AuthApi {
 
   async resetPassword(data) {
     try {
-      const response = await apiClient.post("/api/v1/auth/reset-password", data)
+      const response = await apiClient.post("/v1/auth/reset-password", data)
       return response.data
     } catch (error) {
       if (error instanceof ApiError) {
@@ -60,7 +71,7 @@ export class AuthApi {
 
   async verifyEmail(data) {
     try {
-      const response = await apiClient.post("/api/v1/auth/verify-email", data)
+      const response = await apiClient.post("/v1/auth/verify-email", data)
       return response.data
     } catch (error) {
       if (error instanceof ApiError) {
@@ -72,7 +83,7 @@ export class AuthApi {
 
   async refreshToken(refreshToken) {
     try {
-      const response = await apiClient.post("/api/v1/auth/refresh", {
+      const response = await apiClient.post("/v1/auth/refresh", {
         refresh_token: refreshToken,
       })
       return response.data
@@ -86,7 +97,7 @@ export class AuthApi {
 
   async logout() {
     try {
-      const response = await apiClient.post("/api/v1/auth/logout")
+      const response = await apiClient.post("/v1/auth/logout")
       return response.data
     } catch (error) {
       if (error instanceof ApiError) {

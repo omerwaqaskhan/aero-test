@@ -53,11 +53,11 @@ export function AuthProvider({ children }) {
                localStorage.setItem("refresh_token", response.refresh_token)
                localStorage.setItem("user_data", JSON.stringify(response.user))
                setUser(response.user)
-               success("Welcome back!", "You have successfully logged in.")
+               success("Welcome back!", "You have successfully logged in.", 4000)
                navigate("/dashboard")
              }
            } catch (err) {
-             error("Login Failed", err.message || "Invalid credentials. Please try again.")
+             error("Login Failed", err.message || "Invalid credentials. Please try again.", 4000)
              throw err
            } finally {
              setIsLoading(false)
