@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { useAuth } from "../../contexts/auth-context"
 import { Eye, EyeOff } from "lucide-react"
 
 export function LoginForm() {
   const { login } = useAuth()
+  const STORAGE_KEY = "login_form"
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -13,20 +14,50 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  // Load draft (non-sensitive fields only) on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setFormData(prev => ({
+          ...prev,
+          email: typeof parsed.email === "string" ? parsed.email : prev.email,
+          rememberMe: !!parsed.rememberMe,
+        }))
+      }
+    } catch {}
+  }, [])
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
     setFormData(prev => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value
     }))
+
+    // Persist non-sensitive draft to sessionStorage
+    try {
+      if (name === "email" || name === "rememberMe") {
+        const draft = {
+          email: name === "email" ? value : formData.email,
+          rememberMe: name === "rememberMe" ? checked : formData.rememberMe,
+        }
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
+      }
+    } catch {}
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
+    if (isLoading) return
     setIsLoading(true)
     
     try {
       await login(formData.email, formData.password, formData.rememberMe)
+      // Clear draft on success
+      try { sessionStorage.removeItem(STORAGE_KEY) } catch {}
     } catch (error) {
       // Error handling is done in the auth context
       console.error("Login error:", error)

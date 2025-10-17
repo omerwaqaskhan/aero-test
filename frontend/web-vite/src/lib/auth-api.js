@@ -36,10 +36,23 @@ export class AuthApi {
         ...userData,
         tenant_slug: "windways" // Default tenant for now
       })
+      
+      // Extract nested data from backend response
+      if (response.data && response.data.data) {
+        return {
+          user: response.data.data.user,
+          access_token: response.data.data.tokens.access_token,
+          refresh_token: response.data.data.tokens.refresh_token,
+          expires_in: response.data.data.tokens.expires_in
+        }
+      }
+      
       return response.data
     } catch (error) {
       if (error instanceof ApiError) {
-        throw new Error(this.getErrorMessage(error))
+        const errorMessage = this.getErrorMessage(error)
+        console.log("Register API error message:", errorMessage) // Debug log
+        throw new Error(errorMessage)
       }
       throw error
     }
@@ -108,6 +121,100 @@ export class AuthApi {
   }
 
   getErrorMessage(error) {
+    // Try to extract specific error message from API response
+    // First, support fetch-based ApiError (our ApiClient) via error.details
+    if (error.details) {
+      const responseData = error.details
+      
+      // Handle nested error structure from backend
+      if (responseData.detail && responseData.detail.error) {
+        const apiError = responseData.detail.error
+        let errorMessage = apiError.message || "An error occurred"
+        
+        // Handle specific password validation errors
+        if (apiError.code === "VALIDATION_ERROR" && apiError.details) {
+          // Forbidden pattern already specific
+          if (errorMessage.includes("cannot contain")) return errorMessage
+          // Length style
+          if (errorMessage.includes("must be at least") || errorMessage.includes("should have at least")) return errorMessage
+          if (errorMessage.includes("Password doesn't meet strength requirements")) {
+            return "Password must be at least 8 characters long and cannot contain common words like 'password', '123456', 'qwerty', or 'admin'"
+          }
+        }
+        return errorMessage
+      }
+      
+      // Handle Pydantic validation errors (array format)
+      if (responseData.detail && Array.isArray(responseData.detail)) {
+        const validationErrors = responseData.detail
+        const errorMessages = validationErrors.map(err => {
+          const field = err.loc ? err.loc.join('.') : 'field'
+          return `${field}: ${err.msg}`
+        })
+        return errorMessages.join(', ')
+      }
+      
+      // Handle direct error message
+      if (responseData.message) return responseData.message
+      
+      // Handle validation errors (string format)
+      if (responseData.detail && typeof responseData.detail === 'string') {
+        return responseData.detail
+      }
+    }
+
+    // Also support axios-style errors if present
+    if (error.response && error.response.data) {
+      const responseData = error.response.data
+      
+      // Handle nested error structure from backend
+      if (responseData.detail && responseData.detail.error) {
+        const apiError = responseData.detail.error
+        let errorMessage = apiError.message || "An error occurred"
+        
+        // Handle specific password validation errors
+        if (apiError.code === "VALIDATION_ERROR" && apiError.details) {
+          // Check if it's a forbidden pattern error (already specific)
+          if (errorMessage.includes("cannot contain")) {
+            return errorMessage
+          }
+          
+          // Check if it's a length error
+          if (errorMessage.includes("must be at least") || errorMessage.includes("should have at least")) {
+            return errorMessage
+          }
+          
+          // For other password validation errors, provide helpful message
+          if (errorMessage.includes("Password doesn't meet strength requirements")) {
+            return "Password must be at least 8 characters long and cannot contain common words like 'password', '123456', 'qwerty', or 'admin'"
+          }
+        }
+        
+        return errorMessage
+      }
+      
+      // Handle Pydantic validation errors (array format)
+      if (responseData.detail && Array.isArray(responseData.detail)) {
+        const validationErrors = responseData.detail
+        const errorMessages = validationErrors.map(err => {
+          const field = err.loc ? err.loc.join('.') : 'field'
+          return `${field}: ${err.msg}`
+        })
+        return errorMessages.join(', ')
+      }
+      
+      // Handle direct error message
+      if (responseData.message) {
+        return responseData.message
+      }
+      
+      // Handle validation errors (string format)
+      if (responseData.detail && typeof responseData.detail === 'string') {
+        return responseData.detail
+      }
+    }
+    
+    // Fallback to status-based messages
     switch (error.status) {
       case 400:
         return "Invalid request. Please check your input."

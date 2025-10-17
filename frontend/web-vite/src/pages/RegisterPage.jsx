@@ -12,7 +12,7 @@ export default function RegisterPage() {
       <RegisterForm />
       <SocialRegister />
       <div className="mt-6 text-center">
-        <p className="text-sm text-gray-300">
+        {/* <p className="text-sm text-gray-300">
           Already have an account?{" "}
           <Link
             to="/login"
@@ -20,7 +20,7 @@ export default function RegisterPage() {
           >
             Sign in
           </Link>
-        </p>
+        </p> */}
       </div>
     </AuthLayout>
   )

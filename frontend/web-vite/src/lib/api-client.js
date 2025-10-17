@@ -33,7 +33,8 @@ class ApiClient {
         throw new ApiError(
           data.message || data.error || "An error occurred",
           response.status,
-          data
+          data,
+          response
         )
       }
 
@@ -87,11 +88,12 @@ class ApiClient {
 }
 
 export class ApiError extends Error {
-  constructor(message, status, details) {
+  constructor(message, status, details, response) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.details = details
+    this.response = response
   }
 }
 
