@@ -63,7 +63,7 @@ class UserModel(Base):
     
     # Relationships
     tenant = relationship("TenantModel", back_populates="users")
-    user_roles = relationship("UserRoleModel", back_populates="user", cascade="all, delete-orphan")
+    user_roles = relationship("UserRoleModel", foreign_keys="UserRoleModel.user_id", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshTokenModel", back_populates="user", cascade="all, delete-orphan")
     login_attempts = relationship("LoginAttemptModel", back_populates="user")
     audit_logs = relationship("AuditLogModel", back_populates="actor")

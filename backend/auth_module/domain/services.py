@@ -41,7 +41,7 @@ class AuthService:
         # Validate password strength
         password_validation = self.password_manager.validate_password_strength(password)
         if not password_validation["is_valid"]:
-            raise PasswordTooWeakError(password_validation["requirements"])
+            raise PasswordTooWeakError(password_validation["requirements"], password_validation["errors"])
         
         # Check rate limiting
         rate_limit_key = f"register:{email}"
@@ -108,7 +108,7 @@ class AuthService:
         if is_limited:
             raise RateLimitExceededError(config.rate_limit_login, reset_time)
         
-        # Get user (this would typically use a repository)
+        # Get user using repository
         user = await self._get_user_by_email(tenant_id, email)
         if not user:
             # Log failed attempt
@@ -357,6 +357,15 @@ class AuthService:
         """Revoke all refresh tokens for user (placeholder - would use repository)."""
         # This would typically use a repository
         pass
+    
+    async def _get_user_by_email(self, tenant_id: str, email: str) -> Optional[User]:
+        """Get user by email within tenant."""
+        from ..infrastructure.db.repositories import UserRepository
+        from ..infrastructure.db.database import get_db
+        
+        db = next(get_db())
+        repository = UserRepository(db)
+        return await repository.get_by_email(tenant_id, email)
 
 
 class TenantService:
@@ -446,9 +455,13 @@ class TenantService:
         return tenant
     
     async def _get_tenant_by_slug(self, slug: str) -> Optional[Tenant]:
-        """Get tenant by slug (placeholder - would use repository)."""
-        # This would typically use a repository
-        return None
+        """Get tenant by slug."""
+        from ..infrastructure.db.repositories import TenantRepository
+        from ..infrastructure.db.database import get_db
+        
+        db = next(get_db())
+        repository = TenantRepository(db)
+        return await repository.get_by_slug(slug)
     
     async def _get_tenant_by_id(self, tenant_id: str) -> Optional[Tenant]:
         """Get tenant by ID (placeholder - would use repository)."""

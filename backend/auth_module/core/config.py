@@ -29,10 +29,10 @@ class AuthConfig(BaseSettings):
     # Password Security
     password_min_length: int = Field(8, env="PASSWORD_MIN_LENGTH")
     password_max_length: int = Field(128, env="PASSWORD_MAX_LENGTH")
-    password_require_uppercase: bool = Field(True, env="PASSWORD_REQUIRE_UPPERCASE")
-    password_require_lowercase: bool = Field(True, env="PASSWORD_REQUIRE_LOWERCASE")
-    password_require_numbers: bool = Field(True, env="PASSWORD_REQUIRE_NUMBERS")
-    password_require_special_chars: bool = Field(True, env="PASSWORD_REQUIRE_SPECIAL_CHARS")
+    password_require_uppercase: bool = Field(False, env="PASSWORD_REQUIRE_UPPERCASE")
+    password_require_lowercase: bool = Field(False, env="PASSWORD_REQUIRE_LOWERCASE")
+    password_require_numbers: bool = Field(False, env="PASSWORD_REQUIRE_NUMBERS")
+    password_require_special_chars: bool = Field(False, env="PASSWORD_REQUIRE_SPECIAL_CHARS")
     password_forbidden_patterns: List[str] = Field(
         ["password", "123456", "qwerty", "admin"], 
         env="PASSWORD_FORBIDDEN_PATTERNS"

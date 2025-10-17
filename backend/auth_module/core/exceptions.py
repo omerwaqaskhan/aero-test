@@ -1,6 +1,6 @@
 """Custom exceptions for the authentication module."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 
 class AuthError(Exception):
@@ -265,11 +265,14 @@ class InsufficientPermissionsError(PermissionError):
 class PasswordTooWeakError(ValidationError):
     """Password doesn't meet strength requirements."""
     
-    def __init__(self, requirements: Dict[str, Any]):
+    def __init__(self, requirements: Dict[str, Any], errors: List[str] = None):
+        # Use the first specific error message if available, otherwise use generic message
+        message = errors[0] if errors and len(errors) > 0 else "Password doesn't meet strength requirements"
+        
         super().__init__(
-            message="Password doesn't meet strength requirements",
+            message=message,
             field="password",
-            details={"requirements": requirements}
+            details={"requirements": requirements, "errors": errors or []}
         )
 
 

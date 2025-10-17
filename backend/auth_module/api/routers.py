@@ -15,6 +15,8 @@ from .schemas import (
     CreateTenantRequest, UpdateTenantRequest, TenantResponse,
     # User schemas
     CreateUserRequest, UpdateUserRequest, UserResponse, AssignRoleRequest,
+    # Enums
+    UserRole, UserStatus,
     # Common schemas
     SuccessResponse, ErrorResponse, PaginationResponse, HealthCheckResponse, MetricsResponse
 )
@@ -31,6 +33,23 @@ from ..domain.services import AuthService, TenantService, UserService, Permissio
 
 # Security scheme
 security = HTTPBearer()
+
+# Dependency injection functions
+def get_auth_service() -> AuthService:
+    """Get authentication service instance."""
+    return AuthService()
+
+def get_tenant_service() -> TenantService:
+    """Get tenant service instance."""
+    return TenantService()
+
+def get_user_service() -> UserService:
+    """Get user service instance."""
+    return UserService()
+
+def get_permission_service() -> PermissionService:
+    """Get permission service instance."""
+    return PermissionService()
 
 # Create routers
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -142,12 +161,16 @@ async def register_user(
 async def login_user(
     request: LoginRequest,
     http_request: Request,
-    auth_service: AuthService = Depends()
+    auth_service: AuthService = Depends(get_auth_service),
+    tenant_service: TenantService = Depends(get_tenant_service)
 ):
     """Authenticate a user."""
     try:
+        # Resolve tenant_slug to tenant_id
+        tenant = await tenant_service.get_tenant_by_slug(request.tenant_slug)
+        
         user, access_token, refresh_token = await auth_service.login_user(
-            tenant_id=request.tenant_slug,  # Would resolve tenant_id from slug
+            tenant_id=tenant.id,  # Use resolved tenant_id
             email=request.email,
             password=request.password,
             mfa_code=request.mfa_code,
@@ -158,7 +181,19 @@ async def login_user(
         
         return SuccessResponse(
             data={
-                "user": UserResponse.from_orm(user),
+                "user": UserResponse(
+                    id=str(user.id),
+                    email=user.email,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    role=UserRole(user.role),
+                    status=UserStatus(user.status),
+                    email_verified=user.email_verified,
+                    mfa_enabled=user.mfa_enabled,
+                    last_login=user.last_login,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at
+                ),
                 "tokens": TokenResponse(
                     access_token=access_token,
                     refresh_token=refresh_token,

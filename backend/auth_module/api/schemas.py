@@ -295,10 +295,10 @@ class PasswordValidator:
         requirements = {
             "min_length": 8,
             "max_length": 128,
-            "require_uppercase": True,
-            "require_lowercase": True,
-            "require_numbers": True,
-            "require_special_chars": True,
+            "require_uppercase": False,
+            "require_lowercase": False,
+            "require_numbers": False,
+            "require_special_chars": False,
         }
         
         if len(password) < requirements["min_length"]:
@@ -306,18 +306,6 @@ class PasswordValidator:
         
         if len(password) > requirements["max_length"]:
             errors.append(f"Password must be no more than {requirements['max_length']} characters long")
-        
-        if requirements["require_uppercase"] and not any(c.isupper() for c in password):
-            errors.append("Password must contain at least one uppercase letter")
-        
-        if requirements["require_lowercase"] and not any(c.islower() for c in password):
-            errors.append("Password must contain at least one lowercase letter")
-        
-        if requirements["require_numbers"] and not any(c.isdigit() for c in password):
-            errors.append("Password must contain at least one number")
-        
-        if requirements["require_special_chars"] and not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
-            errors.append("Password must contain at least one special character")
         
         return {
             "is_valid": len(errors) == 0,

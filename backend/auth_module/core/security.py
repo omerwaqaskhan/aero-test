@@ -94,8 +94,8 @@ class JWTManager:
         expire = datetime.utcnow() + expires_delta
         
         payload = {
-            "sub": user_id,
-            "tenant_id": tenant_id,
+            "sub": str(user_id),
+            "tenant_id": str(tenant_id),
             "email": email,
             "role": role,
             "permissions": permissions,
@@ -119,8 +119,8 @@ class JWTManager:
         expire = datetime.utcnow() + expires_delta
         
         payload = {
-            "sub": user_id,
-            "tenant_id": tenant_id,
+            "sub": str(user_id),
+            "tenant_id": str(tenant_id),
             "iat": datetime.utcnow(),
             "exp": expire,
             "iss": config.jwt_issuer,
