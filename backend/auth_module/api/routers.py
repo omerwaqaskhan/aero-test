@@ -400,14 +400,47 @@ async def verify_mfa(
 async def social_login(
     provider: str,
     request: SocialLoginRequest,
-    auth_service: AuthService = Depends()
+    http_request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
+    tenant_service: TenantService = Depends(get_tenant_service)
 ):
     """Social login with OAuth provider."""
     try:
-        # This would be implemented in the auth service
-        # For now, just return success
+        # Resolve tenant_slug to tenant_id
+        tenant = await tenant_service.get_tenant_by_slug(request.tenant_slug)
+        
+        # Perform social login
+        user, access_token, refresh_token = await auth_service.social_login(
+            tenant_id=tenant.id,
+            provider=provider,
+            access_token=request.access_token,
+            device_info=request.device_info,
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent"),
+            redirect_uri=request.redirect_uri
+        )
+        
         return SuccessResponse(
-            data={"message": f"Social login with {provider} successful"},
+            data={
+                "user": UserResponse(
+                    id=str(user.id),
+                    email=user.email,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    role=UserRole(user.role),
+                    status=UserStatus(user.status),
+                    email_verified=user.email_verified,
+                    mfa_enabled=user.mfa_enabled,
+                    last_login=user.last_login,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at
+                ),
+                "tokens": TokenResponse(
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                    expires_in=3600
+                )
+            },
             meta={
                 "timestamp": datetime.utcnow().isoformat(),
                 "request_id": str(uuid.uuid4())

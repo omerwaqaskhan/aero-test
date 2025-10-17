@@ -104,6 +104,7 @@ class SocialLoginRequest(BaseModel):
     tenant_slug: str = Field(..., min_length=1, max_length=50)
     provider: str = Field(..., pattern="^(google|facebook|apple)$")
     access_token: str
+    redirect_uri: Optional[str] = None
 
 
 class LogoutRequest(BaseModel):

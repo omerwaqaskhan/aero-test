@@ -120,6 +120,35 @@ export class AuthApi {
     }
   }
 
+  async socialLogin(provider, accessToken, deviceInfo = null) {
+    try {
+      const response = await apiClient.post(`/v1/auth/social/${provider}`, {
+        tenant_slug: "windways", // Default tenant for now
+        provider: provider,
+        access_token: accessToken,
+        device_info: deviceInfo,
+        redirect_uri: window.location.origin // Add redirect URI for Google OAuth
+      })
+      
+      // Extract nested data from backend response
+      if (response.data && response.data.data) {
+        return {
+          user: response.data.data.user,
+          access_token: response.data.data.tokens.access_token,
+          refresh_token: response.data.data.tokens.refresh_token,
+          expires_in: response.data.data.tokens.expires_in
+        }
+      }
+      
+      return response.data
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new Error(this.getErrorMessage(error))
+      }
+      throw error
+    }
+  }
+
   getErrorMessage(error) {
     // Try to extract specific error message from API response
     // First, support fetch-based ApiError (our ApiClient) via error.details

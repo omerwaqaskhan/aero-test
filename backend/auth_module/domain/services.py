@@ -225,6 +225,188 @@ class AuthService:
         )
         
         return user, access_token, refresh_token
+
+    async def social_login(
+        self,
+        tenant_id: str,
+        provider: str,
+        access_token: str,
+        device_info: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        redirect_uri: Optional[str] = None
+    ) -> Tuple[User, str, str]:
+        """Authenticate or register a user via social login."""
+        from ..infrastructure.oauth import OAuthService
+        
+        # Initialize OAuth service
+        oauth_service = OAuthService()
+        
+        # Verify the social token and get user info
+        try:
+            social_user_info = await oauth_service.verify_social_token(provider, access_token, redirect_uri)
+        except Exception as e:
+            # Log failed attempt
+            await self._log_login_attempt(
+                tenant_id=tenant_id,
+                email="unknown",
+                success=False,
+                reason="invalid_social_token",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details={"provider": provider, "error": str(e)}
+            )
+            raise InvalidCredentialsError(f"Invalid {provider} token")
+        
+        email = social_user_info["email"]
+        provider_id = social_user_info["provider_id"]
+        
+        # Check rate limiting
+        rate_limit_key = f"social_login:{email}:{provider}"
+        is_limited, current_count, reset_time = self.rate_limiter.is_rate_limited(
+            rate_limit_key, config.rate_limit_login, 60
+        )
+        if is_limited:
+            raise RateLimitExceededError(config.rate_limit_login, reset_time)
+        
+        # Check if user exists
+        user = await self._get_user_by_email(tenant_id, email)
+        
+        if user:
+            # User exists - check if they have this social provider linked
+            if not await self._is_social_provider_linked(user.id, provider, provider_id):
+                # Link the social provider to existing account
+                await self._link_social_provider(user.id, provider, provider_id, social_user_info)
+            
+            # Check if user is active
+            if not user.is_active():
+                if user.is_suspended():
+                    raise UserAccountSuspendedError(user.id)
+                else:
+                    # For social login, we can auto-verify email
+                    user.verify_email()
+                    await self._update_user(user)
+            
+            # Update last login
+            user.update_last_login()
+            
+            # Log successful login
+            await self._log_login_attempt(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                email=email,
+                success=True,
+                reason="social_login_success",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details={"provider": provider}
+            )
+            
+        else:
+            # User doesn't exist - create new account
+            user = await self._create_social_user(
+                tenant_id=tenant_id,
+                social_user_info=social_user_info,
+                provider=provider,
+                provider_id=provider_id
+            )
+            
+            # Log successful registration
+            await self._log_login_attempt(
+                tenant_id=tenant_id,
+                user_id=user.id,
+                email=email,
+                success=True,
+                reason="social_registration_success",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                details={"provider": provider}
+            )
+        
+        # Generate tokens
+        permissions = await self._get_user_permissions(user.id)
+        access_token = self.jwt_manager.generate_access_token(
+            user_id=user.id,
+            tenant_id=user.tenant_id,
+            email=user.email,
+            role=user.role,
+            permissions=permissions
+        )
+        
+        refresh_token = self.jwt_manager.generate_refresh_token(
+            user_id=user.id,
+            tenant_id=user.tenant_id,
+            device_info=device_info
+        )
+        
+        # Log audit event
+        AuditLogger.log_security_event(
+            event_type="social_login",
+            user_id=user.id,
+            tenant_id=tenant_id,
+            details={
+                "provider": provider,
+                "email": email,
+                "is_new_user": user.created_at == user.updated_at
+            }
+        )
+        
+        return user, access_token, refresh_token
+
+    async def _create_social_user(
+        self,
+        tenant_id: str,
+        social_user_info: Dict[str, Any],
+        provider: str,
+        provider_id: str
+    ) -> User:
+        """Create a new user from social login info."""
+        # Create user without password
+        user = User(
+            tenant_id=tenant_id,
+            email=social_user_info["email"],
+            password_hash=None,  # No password for social users
+            first_name=social_user_info["first_name"],
+            last_name=social_user_info["last_name"],
+            role="user",
+            status="active",  # Auto-activate social users
+            email_verified=True  # Social providers verify emails
+        )
+        
+        # Save user (this would typically use a repository)
+        await self._save_user(user)
+        
+        # Link social provider
+        await self._link_social_provider(user.id, provider, provider_id, social_user_info)
+        
+        return user
+
+    async def _is_social_provider_linked(self, user_id: str, provider: str, provider_id: str) -> bool:
+        """Check if a social provider is linked to a user."""
+        # This would typically query a social_providers table
+        # For now, return False to always link
+        return False
+
+    async def _link_social_provider(
+        self,
+        user_id: str,
+        provider: str,
+        provider_id: str,
+        social_user_info: Dict[str, Any]
+    ) -> None:
+        """Link a social provider to a user account."""
+        # This would typically save to a social_providers table
+        # For now, just log the action
+        AuditLogger.log_security_event(
+            event_type="social_provider_linked",
+            user_id=user_id,
+            tenant_id=None,
+            details={
+                "provider": provider,
+                "provider_id": provider_id,
+                "user_info": social_user_info
+            }
+        )
     
     async def refresh_token(self, refresh_token: str) -> Tuple[str, str]:
         """Refresh access token."""

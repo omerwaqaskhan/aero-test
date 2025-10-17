@@ -85,6 +85,26 @@ export function AuthProvider({ children }) {
            }
          }
 
+  const socialLogin = async (provider, accessToken, deviceInfo = null) => {
+    try {
+      setIsLoading(true)
+      const response = await authApi.socialLogin(provider, accessToken, deviceInfo)
+      if (response) {
+        localStorage.setItem("access_token", response.access_token)
+        localStorage.setItem("refresh_token", response.refresh_token)
+        localStorage.setItem("user_data", JSON.stringify(response.user))
+        setUser(response.user)
+        success("Welcome!", `You have successfully signed in with ${provider.charAt(0).toUpperCase() + provider.slice(1)}.`, 4000)
+        navigate("/dashboard")
+      }
+    } catch (err) {
+      error("Social Login Failed", err.message || `Failed to sign in with ${provider}. Please try again.`, 4000)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const logout = async () => {
     try {
       setIsLoading(true)
@@ -151,6 +171,7 @@ export function AuthProvider({ children }) {
         isAuthenticated,
         login,
         register,
+        socialLogin,
         logout,
         forgotPassword,
         resetPassword,
