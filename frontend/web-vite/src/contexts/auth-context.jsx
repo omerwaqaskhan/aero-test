@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
                localStorage.setItem("refresh_token", response.refresh_token)
                localStorage.setItem("user_data", JSON.stringify(response.user))
                setUser(response.user)
-               success("Account Created!", "Welcome to WindWays! Your account has been created successfully.", 4000)
+               success("Account Created!", "Welcome to LuftWay! Your account has been created successfully.", 4000)
                navigate("/dashboard")
              }
            } catch (err) {

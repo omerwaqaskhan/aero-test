@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for WindWays Frontend (Vite)
+# Multi-stage Dockerfile for LuftWay Frontend (Vite)
 FROM node:20-alpine AS base
 
 # Install dependencies only when needed

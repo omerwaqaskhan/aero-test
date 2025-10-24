@@ -22,7 +22,7 @@ export function AuthLayout({ children, title, subtitle }) {
         <div className="hidden lg:flex lg:w-2/3 flex-col justify-center items-center px-8">
           <div className="text-center max-w-md">
             <h1 className="text-5xl font-bold text-white mb-2">
-              WindWays
+              LuftWay
             </h1>
             <CarouselText 
               texts={carouselTexts}

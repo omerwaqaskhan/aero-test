@@ -8,7 +8,7 @@ export class AuthApi {
     try {
       const response = await apiClient.post("/v1/auth/login", {
         ...credentials,
-        tenant_slug: "windways" // Default tenant for now
+        tenant_slug: "luftway" // Default tenant for now
       })
       
       // Extract nested data from backend response
@@ -34,7 +34,7 @@ export class AuthApi {
     try {
       const response = await apiClient.post("/v1/auth/register", {
         ...userData,
-        tenant_slug: "windways" // Default tenant for now
+        tenant_slug: "luftway" // Default tenant for now
       })
       
       // Extract nested data from backend response

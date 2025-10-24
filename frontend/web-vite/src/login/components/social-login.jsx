@@ -1,67 +1,6 @@
-import { useState, useEffect } from "react"
 import { Button } from "../../components/ui/button.jsx"
-import { useAuth } from "../../contexts/auth-context.jsx"
-import { signInWithGoogle, signInWithFacebook, getDeviceInfo, initializeOAuth, isFacebookAvailable } from "../../lib/oauth.js"
 
 export function SocialLogin() {
-  const { socialLogin } = useAuth()
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
-  const [isFacebookLoading, setIsFacebookLoading] = useState(false)
-  const [isInitialized, setIsInitialized] = useState(false)
-  const [facebookAvailable, setFacebookAvailable] = useState(false)
-
-  useEffect(() => {
-    // Initialize OAuth providers on component mount
-    initializeOAuth().then((success) => {
-      setIsInitialized(success)
-      setFacebookAvailable(isFacebookAvailable())
-    })
-  }, [])
-
-  const handleGoogleLogin = async () => {
-    if (isGoogleLoading || isFacebookLoading) return
-    
-    try {
-      setIsGoogleLoading(true)
-      const credential = await signInWithGoogle()
-      const deviceInfo = getDeviceInfo()
-      
-      await socialLogin('google', credential, deviceInfo)
-    } catch (error) {
-      console.error('Google login error:', error)
-      // Error handling is done in the auth context
-    } finally {
-      setIsGoogleLoading(false)
-    }
-  }
-
-  const handleFacebookLogin = async () => {
-    if (isGoogleLoading || isFacebookLoading) return
-    
-    try {
-      setIsFacebookLoading(true)
-      const accessToken = await signInWithFacebook()
-      const deviceInfo = getDeviceInfo()
-      
-      await socialLogin('facebook', accessToken, deviceInfo)
-    } catch (error) {
-      console.error('Facebook login error:', error)
-      // Error handling is done in the auth context
-    } finally {
-      setIsFacebookLoading(false)
-    }
-  }
-
-  if (!isInitialized) {
-    return (
-      <div className="mt-6">
-        <div className="flex justify-center text-sm">
-          <span className="text-gray-300">Loading social login options...</span>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="mt-6">
       <div className="flex justify-center text-sm">
@@ -69,12 +8,7 @@ export function SocialLogin() {
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3">
-        <Button 
-          variant="outline" 
-          className="w-full bg-white/10 border-gray-400 text-gray-200 hover:bg-white/20 disabled:opacity-50"
-          onClick={handleGoogleLogin}
-          disabled={isGoogleLoading || isFacebookLoading}
-        >
+        <Button variant="outline" className="w-full bg-white/10 border-gray-400 text-gray-200 hover:bg-white/20">
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
             <path
               fill="currentColor"
@@ -93,19 +27,13 @@ export function SocialLogin() {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          {isGoogleLoading ? "Signing in..." : "Google"}
+          Google
         </Button>
-        <Button 
-          variant="outline" 
-          className="w-full bg-white/10 border-gray-400 text-gray-200 hover:bg-white/20 disabled:opacity-50"
-          onClick={handleFacebookLogin}
-          disabled={isGoogleLoading || isFacebookLoading || !facebookAvailable}
-          title={!facebookAvailable ? "Facebook login requires HTTPS" : ""}
-        >
+        <Button variant="outline" className="w-full bg-white/10 border-gray-400 text-gray-200 hover:bg-white/20">
           <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
           </svg>
-          {isFacebookLoading ? "Signing in..." : !facebookAvailable ? "Facebook (HTTPS required)" : "Facebook"}
+          Facebook
         </Button>
       </div>
     </div>

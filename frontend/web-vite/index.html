@@ -5,11 +5,37 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Removed preload for bg.jpg to avoid unused preload warnings in dev -->
-    <title>WindWays - Where every journey finds its way</title>
-    <meta name="description" content="Discover amazing travel deals and plan your perfect trip with WindWays" />
+    <title>LuftWay - Where every journey finds its way</title>
+    <meta name="description" content="Discover amazing travel deals and plan your perfect trip with LuftWay" />
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Reduce aggressive WebSocket reconnection attempts
+      if (typeof window !== 'undefined') {
+        // Override WebSocket to reduce reconnection attempts
+        const originalWebSocket = window.WebSocket;
+        window.WebSocket = function(url, protocols) {
+          const ws = new originalWebSocket(url, protocols);
+          let reconnectAttempts = 0;
+          const maxReconnectAttempts = 3;
+          const reconnectInterval = 5000;
+          
+          const originalOnClose = ws.onclose;
+          ws.onclose = function(event) {
+            if (reconnectAttempts < maxReconnectAttempts) {
+              setTimeout(() => {
+                reconnectAttempts++;
+                // Don't automatically reconnect, let Vite handle it
+              }, reconnectInterval);
+            }
+            if (originalOnClose) originalOnClose.call(this, event);
+          };
+          
+          return ws;
+        };
+      }
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

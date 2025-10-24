@@ -7,7 +7,7 @@ export default function RegisterPage() {
   return (
     <AuthLayout
       title="Create Account"
-      subtitle="Join WindWays and start your travel journey"
+      subtitle="Join LuftWay and start your travel journey"
     >
       <RegisterForm />
       <SocialRegister />
