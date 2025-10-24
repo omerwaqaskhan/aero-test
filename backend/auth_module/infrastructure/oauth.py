@@ -52,60 +52,6 @@ class OAuthService:
             raise SystemError(f"Failed to verify Google token: {str(e)}")
         except Exception as e:
             raise SystemError(f"Google OAuth error: {str(e)}")
-
-    async def verify_google_authorization_code(self, authorization_code: str, redirect_uri: str) -> Dict[str, Any]:
-        """Exchange Google authorization code for user info."""
-        if not self.google_client_id or not self.google_client_secret:
-            raise SystemError("Google OAuth not configured")
-        
-        try:
-            async with httpx.AsyncClient() as client:
-                # Exchange authorization code for access token
-                token_response = await client.post(
-                    "https://oauth2.googleapis.com/token",
-                    data={
-                        "client_id": self.google_client_id,
-                        "client_secret": self.google_client_secret,
-                        "code": authorization_code,
-                        "grant_type": "authorization_code",
-                        "redirect_uri": redirect_uri
-                    }
-                )
-                token_response.raise_for_status()
-                
-                token_data = token_response.json()
-                access_token = token_data.get("access_token")
-                
-                if not access_token:
-                    raise ValidationError("Failed to get access token from Google")
-                
-                # Get user info using the access token
-                user_response = await client.get(
-                    "https://www.googleapis.com/oauth2/v2/userinfo",
-                    headers={"Authorization": f"Bearer {access_token}"}
-                )
-                user_response.raise_for_status()
-                
-                user_info = user_response.json()
-                
-                # Validate required fields
-                if not user_info.get("email") or not user_info.get("verified_email"):
-                    raise ValidationError("Google account email not verified")
-                
-                return {
-                    "provider": "google",
-                    "provider_id": user_info["id"],
-                    "email": user_info["email"],
-                    "first_name": user_info.get("given_name", ""),
-                    "last_name": user_info.get("family_name", ""),
-                    "avatar_url": user_info.get("picture"),
-                    "verified": user_info.get("verified_email", False)
-                }
-                
-        except httpx.HTTPError as e:
-            raise SystemError(f"Failed to verify Google authorization code: {str(e)}")
-        except Exception as e:
-            raise SystemError(f"Google OAuth error: {str(e)}")
     
     async def verify_facebook_token(self, access_token: str) -> Dict[str, Any]:
         """Verify Facebook OAuth token and get user info."""
@@ -196,18 +142,12 @@ class OAuthService:
         except Exception as e:
             raise SystemError(f"Apple OAuth error: {str(e)}")
     
-    async def verify_social_token(self, provider: str, access_token: str, redirect_uri: str = None) -> Dict[str, Any]:
+    async def verify_social_token(self, provider: str, access_token: str) -> Dict[str, Any]:
         """Verify social login token for any supported provider."""
         provider = provider.lower()
         
         if provider == "google":
-            # Check if it's an authorization code (starts with 4/) or a JWT token
-            if access_token.startswith("4/"):
-                if not redirect_uri:
-                    redirect_uri = "http://localhost:3000"  # Default for development
-                return await self.verify_google_authorization_code(access_token, redirect_uri)
-            else:
-                return await self.verify_google_token(access_token)
+            return await self.verify_google_token(access_token)
         elif provider == "facebook":
             return await self.verify_facebook_token(access_token)
         elif provider == "apple":

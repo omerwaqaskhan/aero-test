@@ -138,6 +138,18 @@ class UserRepository(BaseRepository):
             query = query.filter(UserModel.status == status)
         
         return query.count()
+    
+    async def update_password(self, user_id: str, password_hash: str) -> bool:
+        """Update user password."""
+        db_user = self.db.query(UserModel).filter(UserModel.id == user_id).first()
+        if not db_user:
+            return False
+        
+        db_user.password_hash = password_hash
+        db_user.updated_at = datetime.utcnow()
+        
+        self.db.commit()
+        return True
 
 
 class TenantRepository(BaseRepository):

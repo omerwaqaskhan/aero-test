@@ -1,64 +1,64 @@
-# WindWays Platform - Docker Compose Configuration
+# LuftWay Platform - Docker Compose Configuration
 # Using latest Docker Compose specification (no version field needed)
 
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: windways-postgres
+    container_name: luftway-postgres
     environment:
-      POSTGRES_DB: windways_auth_dev
-      POSTGRES_USER: windways_user
-      POSTGRES_PASSWORD: windways_password
+      POSTGRES_DB: luftway_auth_dev
+      POSTGRES_USER: luftway_user
+      POSTGRES_PASSWORD: luftway_password
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ../backups/postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U windways_user -d windways_auth_dev"]
+      test: ["CMD-SHELL", "pg_isready -U luftway_user -d luftway_auth_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     restart: unless-stopped
     networks:
-      - windways-network
+      - luftway-network
 
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: windways-redis
-    command: redis-server --appendonly yes --requirepass windways_redis_password
+    container_name: luftway-redis
+    command: redis-server --appendonly yes --requirepass luftway_redis_password
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "windways_redis_password", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "luftway_redis_password", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     restart: unless-stopped
     networks:
-      - windways-network
+      - luftway-network
 
-  # WindWays Backend API
+  # LuftWay Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
       target: production
-    container_name: windways-backend
+    container_name: luftway-backend
     environment:
       # Database
-      DATABASE_URL: postgresql://windways_user:windways_password@postgres:5432/windways_auth_dev
+      DATABASE_URL: postgresql://luftway_user:luftway_password@postgres:5432/luftway_auth_dev
       DATABASE_POOL_SIZE: 10
       DATABASE_MAX_OVERFLOW: 20
       
       # Redis
-      REDIS_URL: redis://:windways_redis_password@redis:6379/0
+      REDIS_URL: redis://:luftway_redis_password@redis:6379/0
       CACHE_TTL: 3600
       
       # JWT
@@ -66,8 +66,8 @@ services:
       JWT_ALGORITHM: HS256
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 60
       JWT_REFRESH_TOKEN_EXPIRE_DAYS: 30
-      JWT_ISSUER: windways-auth
-      JWT_AUDIENCE: windways-api
+      JWT_ISSUER: luftway-auth
+      JWT_AUDIENCE: luftway-api
       
       # Password Security
       PASSWORD_MIN_LENGTH: 8
@@ -99,8 +99,8 @@ services:
       SMTP_USERNAME: your-email@gmail.com
       SMTP_PASSWORD: your-app-password
       SMTP_USE_TLS: true
-      EMAIL_FROM: noreply@windways.com
-      EMAIL_FROM_NAME: WindWays
+      EMAIL_FROM: noreply@luftway.com
+      EMAIL_FROM_NAME: LuftWay
       
       # SMS Configuration (optional)
       SMS_PROVIDER: twilio
@@ -119,7 +119,7 @@ services:
       
       # Tenant Configuration
       TENANT_RESOLUTION_STRATEGY: subdomain
-      DEFAULT_TENANT_SLUG: default
+      DEFAULT_TENANT_SLUG: luftway
       TENANT_SLUG_PATTERN: '^[a-z0-9-]+$'
       
       # Security Headers
@@ -155,7 +155,7 @@ services:
       start_period: 60s
     restart: unless-stopped
     networks:
-      - windways-network
+      - luftway-network
     deploy:
       resources:
         limits:
@@ -165,13 +165,13 @@ services:
           memory: 512M
           cpus: '0.25'
 
-  # WindWays Frontend
+  # LuftWay Frontend
   frontend:
     build:
       context: ./frontend/web-vite
       dockerfile: Dockerfile
       target: development
-    container_name: windways-frontend
+    container_name: luftway-frontend
     # No host port binding in base; Nginx will proxy to the container
     depends_on:
       - backend
@@ -183,7 +183,7 @@ services:
       start_period: 60s
     restart: unless-stopped
     networks:
-      - windways-network
+      - luftway-network
     deploy:
       resources:
         limits:
@@ -196,7 +196,7 @@ services:
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: windways-nginx
+    container_name: luftway-nginx
     ports:
       - "80:80"
       - "443:443"
@@ -208,14 +208,14 @@ services:
       - backend
       - frontend
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
     restart: unless-stopped
     networks:
-      - windways-network
+      - luftway-network
     deploy:
       resources:
         limits:
@@ -227,14 +227,12 @@ services:
 
 # Named volumes for data persistence
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
 
 # Custom network for service communication
 networks:
-  windways-network:
+  luftway-network:
     driver: bridge
     ipam:
       config:

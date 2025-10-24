@@ -1,9 +1,9 @@
--- Create default tenant for WindWays
+-- Create default tenant for LuftWay
 INSERT INTO tenants (id, slug, name, status, settings, branding, created_at, updated_at) 
 VALUES (
     gen_random_uuid(), 
-    'windways', 
-    'WindWays', 
+    'luftway', 
+    'LuftWay', 
     'active', 
     '{}', 
     '{}', 

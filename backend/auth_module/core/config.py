@@ -23,8 +23,8 @@ class AuthConfig(BaseSettings):
     jwt_algorithm: str = Field("HS256", env="JWT_ALGORITHM")
     jwt_access_token_expire_minutes: int = Field(60, env="JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
     jwt_refresh_token_expire_days: int = Field(30, env="JWT_REFRESH_TOKEN_EXPIRE_DAYS")
-    jwt_issuer: str = Field("windways-auth", env="JWT_ISSUER")
-    jwt_audience: str = Field("windways-api", env="JWT_AUDIENCE")
+    jwt_issuer: str = Field("luftway-auth", env="JWT_ISSUER")
+    jwt_audience: str = Field("luftway-api", env="JWT_AUDIENCE")
     
     # Password Security
     password_min_length: int = Field(8, env="PASSWORD_MIN_LENGTH")
@@ -79,7 +79,7 @@ class AuthConfig(BaseSettings):
     
     # Tenant Configuration
     tenant_resolution_strategy: str = Field("subdomain", env="TENANT_RESOLUTION_STRATEGY")
-    default_tenant_slug: str = Field("default", env="DEFAULT_TENANT_SLUG")
+    default_tenant_slug: str = Field("luftway", env="DEFAULT_TENANT_SLUG")
     tenant_slug_pattern: str = Field(r"^[a-z0-9-]+$", env="TENANT_SLUG_PATTERN")
     
     # Security Headers

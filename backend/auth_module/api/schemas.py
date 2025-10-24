@@ -88,6 +88,12 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
+class ChangePasswordRequest(BaseModel):
+    """Change password request."""
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
 class MFASetupRequest(BaseModel):
     """MFA setup request."""
     method: str = Field(..., pattern="^(totp|sms|email)$")
@@ -104,7 +110,6 @@ class SocialLoginRequest(BaseModel):
     tenant_slug: str = Field(..., min_length=1, max_length=50)
     provider: str = Field(..., pattern="^(google|facebook|apple)$")
     access_token: str
-    redirect_uri: Optional[str] = None
 
 
 class LogoutRequest(BaseModel):

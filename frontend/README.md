@@ -1,10 +1,10 @@
-# WindWays Frontend
+# LuftWay Frontend
 
-> Frontend applications for the WindWays travel platform
+> Frontend applications for the LuftWay travel platform
 
 ## 🎯 Overview
 
-This directory will contain all frontend applications for the WindWays platform:
+This directory will contain all frontend applications for the LuftWay platform:
 
 - **Web Application** - Main travel booking and search interface
 - **Admin Dashboard** - Management interface for agencies and hotels
@@ -17,7 +17,7 @@ The frontend applications are planned for future development phases:
 ### Phase 2: Core Web Application
 - React-based search and booking interface
 - Responsive design for all devices
-- Integration with WindWays backend APIs
+- Integration with LuftWay backend APIs
 - Real-time search and filtering
 
 ### Phase 3: Admin Dashboard
@@ -69,7 +69,7 @@ frontend/
 
 ## 🔗 Integration
 
-The frontend will integrate with the WindWays backend through:
+The frontend will integrate with the LuftWay backend through:
 
 - **Authentication API** - User login, registration, MFA
 - **Search API** - Hotel and accommodation search
