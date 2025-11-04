@@ -14,7 +14,7 @@ export function AuthLayout({ children, title, subtitle }) {
     <div className="min-h-screen relative overflow-hidden">
       {/* Full Screen Background with gradient fallback and lazy-loaded image */}
       <div className="fixed inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900" />
-      <LazyBackground key="bg-image" src="/images/bg.jpg" />
+      <LazyBackground key="bg-image" src="/images/background.jpg" />
 
       {/* Content Container - Split Layout */}
       <div className="relative z-10 min-h-screen flex">

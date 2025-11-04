@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
                localStorage.setItem("user_data", JSON.stringify(response.user))
                setUser(response.user)
                success("Welcome back!", "You have successfully logged in.", 4000)
-               navigate("/dashboard")
+               navigate("/dashboard", { replace: true })
              }
            } catch (err) {
              error("Login Failed", err.message || "Invalid credentials. Please try again.", 4000)
@@ -74,7 +74,7 @@ export function AuthProvider({ children }) {
                localStorage.setItem("user_data", JSON.stringify(response.user))
                setUser(response.user)
                success("Account Created!", "Welcome to LuftWay! Your account has been created successfully.", 4000)
-               navigate("/dashboard")
+               navigate("/dashboard", { replace: true })
              }
            } catch (err) {
              console.log("Registration error:", err.message) // Debug log
@@ -95,7 +95,7 @@ export function AuthProvider({ children }) {
         localStorage.setItem("user_data", JSON.stringify(response.user))
         setUser(response.user)
         success("Welcome!", `You have successfully signed in with ${provider.charAt(0).toUpperCase() + provider.slice(1)}.`, 4000)
-        navigate("/dashboard")
+        navigate("/dashboard", { replace: true })
       }
     } catch (err) {
       error("Social Login Failed", err.message || `Failed to sign in with ${provider}. Please try again.`, 4000)
@@ -119,7 +119,7 @@ export function AuthProvider({ children }) {
       setUser(null)
       setIsLoading(false)
       success("Logged Out", "You have been successfully logged out.")
-          navigate("/login")
+          navigate("/login", { replace: true })
     }
   }
 
@@ -141,7 +141,7 @@ export function AuthProvider({ children }) {
       setIsLoading(true)
       await authApi.resetPassword({ token, password, confirm_password: confirmPassword })
       success("Password Reset", "Your password has been successfully reset. Please log in with your new password.")
-          navigate("/login")
+          navigate("/login", { replace: true })
     } catch (err) {
       error("Password Reset Failed", err.message || "Please try again.")
       throw err

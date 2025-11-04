@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 // Global cache to prevent reloading the same image
 const imageCache = new Map()
 
-export function LazyBackground({ src = "/images/bg.jpg", className = "" }) {
+export function LazyBackground({ src = "/images/background.jpg", className = "" }) {
   const [isLoaded, setIsLoaded] = useState(imageCache.has(src))
 
   useEffect(() => {
