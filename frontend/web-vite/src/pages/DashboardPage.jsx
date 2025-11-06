@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, MapPin, Calendar, Users, Star, ArrowRight, Shield, Clock, Award, Heart, ChevronRight, User as UserIcon, LogOut } from 'lucide-react';
+import { Search, MapPin, Calendar, Users, Star, ArrowRight, Shield, Clock, Award, Heart, ChevronRight, User as UserIcon } from 'lucide-react';
 import Navigation from '../components/layout/navigation';
 import Footer from '../components/layout/footer';
 import HeroSection from '../components/ui/hero-section';
@@ -10,7 +10,7 @@ import FeatureCard from '../components/ui/feature-card';
 import { useAuth } from '../contexts/auth-context';
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [searchData, setSearchData] = useState({
     destination: '',
     checkIn: '',
@@ -155,7 +155,7 @@ export default function DashboardPage() {
       {/* Welcome Banner for Logged-in Users */}
       <div className="bg-gradient-to-r from-blue-600 via-teal-600 to-cyan-600 text-white py-5 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
               <UserIcon className="w-7 h-7" />
               <div>
@@ -165,13 +165,6 @@ export default function DashboardPage() {
                 <p className="text-blue-50 text-sm font-light">Ready to plan your next adventure?</p>
               </div>
             </div>
-            <button
-              onClick={logout}
-              className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-5 py-2.5 rounded-xl transition-all backdrop-blur-sm font-semibold"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </button>
           </div>
         </div>
       </div>
@@ -261,11 +254,11 @@ export default function DashboardPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
               onClick={() => document.getElementById('search')?.scrollIntoView({ behavior: 'smooth' })}
-              className="bg-white text-blue-600 px-10 py-4 rounded-xl font-bold hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
+              className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all backdrop-blur-sm bg-white/20 shadow-lg"
             >
               Start Searching
             </button>
-            <button className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all backdrop-blur-sm bg-white bg-opacity-10">
+            <button className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold hover:bg-white hover:text-blue-600 transition-all backdrop-blur-sm bg-white/20 shadow-lg">
               View My Bookings
             </button>
           </div>

@@ -13,9 +13,10 @@ export default defineConfig({
     hmr: false, // Disable HMR completely to avoid connection issues
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/api'),
       },
     },
   },
