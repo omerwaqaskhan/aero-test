@@ -6,6 +6,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 import re
+import time
+from datetime import datetime
 from ..core.config import config
 from ..core.exceptions import TenantNotFoundError, TenantSuspendedError
 from ..core.security import SecurityHeaders
@@ -250,7 +252,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     
     def __init__(self, app: ASGIApp):
         super().__init__(app)
-        self.rate_limiter = None  # Would be initialized with actual rate limiter
+        from ..core.security import RateLimiter
+        self.rate_limiter = RateLimiter()
+        self.default_limit = "1000/hour"
+        self.default_window = 3600
     
     async def dispatch(self, request: Request, call_next):
         """Process request and check rate limits."""
@@ -258,12 +263,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             # Get client identifier
             client_id = self._get_client_id(request)
             
+            # Get rate limit config for this endpoint
+            limit, window = self._get_rate_limit_for_path(request.url.path)
+            
             # Check rate limit
-            is_limited, current_count, reset_time = await self._check_rate_limit(
-                client_id, request
+            is_limited, current_count, reset_time = self.rate_limiter.is_rate_limited(
+                key=f"api:{client_id}:{request.url.path}",
+                limit=limit,
+                window_seconds=window
             )
             
             if is_limited:
+                retry_after = max(0, reset_time - int(time.time()))
                 return JSONResponse(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     content={
@@ -271,17 +282,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                             "code": "SYSTEM_RATE_LIMITED",
                             "message": "Rate limit exceeded",
                             "details": {
-                                "retry_after": reset_time,
-                                "current_count": current_count
+                                "retry_after": retry_after,
+                                "current_count": current_count,
+                                "limit": limit
                             },
-                            "timestamp": "2024-01-15T10:30:00Z",
+                            "timestamp": datetime.utcnow().isoformat(),
                             "request_id": request.headers.get("X-Request-ID", "unknown")
                         }
                     },
                     headers={
-                        "Retry-After": str(reset_time),
-                        "X-RateLimit-Limit": "1000",
-                        "X-RateLimit-Remaining": str(1000 - current_count),
+                        "Retry-After": str(retry_after),
+                        "X-RateLimit-Limit": limit,
+                        "X-RateLimit-Remaining": "0",
                         "X-RateLimit-Reset": str(reset_time)
                     }
                 )
@@ -289,14 +301,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             
             # Add rate limit headers
-            response.headers["X-RateLimit-Limit"] = "1000"
-            response.headers["X-RateLimit-Remaining"] = str(1000 - current_count)
+            remaining = int(limit.split('/')[0]) - current_count
+            response.headers["X-RateLimit-Limit"] = limit
+            response.headers["X-RateLimit-Remaining"] = str(max(0, remaining))
             response.headers["X-RateLimit-Reset"] = str(reset_time)
             
             return response
             
-        except Exception:
-            # Fail open for rate limiting
+        except Exception as e:
+            # Fail open for rate limiting - log error but allow request
+            import logging
+            logging.error(f"Rate limiting error: {e}")
             return await call_next(request)
     
     def _get_client_id(self, request: Request) -> str:
@@ -310,11 +325,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         
         return ip_address
     
-    async def _check_rate_limit(self, client_id: str, request: Request) -> tuple[bool, int, int]:
-        """Check rate limit for client."""
-        # This would use the actual rate limiter
-        # For now, return not limited
-        return False, 0, 0
+    def _get_rate_limit_for_path(self, path: str) -> tuple[str, int]:
+        """Get rate limit configuration for path."""
+        from ..core.config import config
+        
+        # Map paths to rate limits
+        if path.startswith("/api/v1/auth/login"):
+            return config.rate_limit_login, 60
+        elif path.startswith("/api/v1/auth/register"):
+            return config.rate_limit_register, 3600
+        elif path.startswith("/api/v1/auth/forgot-password"):
+            return config.rate_limit_forgot_password, 3600
+        elif path.startswith("/api/v1/auth/mfa/verify"):
+            return config.rate_limit_mfa_verify, 60
+        elif path.startswith("/api/v1/auth/refresh"):
+            return config.rate_limit_refresh_token, 60
+        elif path.startswith("/api/v1/tenants") and "POST" in path:
+            return config.rate_limit_tenant_creation, 3600
+        else:
+            return self.default_limit, self.default_window
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):

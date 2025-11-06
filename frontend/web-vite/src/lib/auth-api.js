@@ -149,6 +149,36 @@ export class AuthApi {
     }
   }
 
+  async setupMFA(data) {
+    try {
+      const response = await apiClient.post("/v1/auth/mfa/setup", data)
+      if (response.data && response.data.data) {
+        return response.data.data
+      }
+      return response.data
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new Error(this.getErrorMessage(error))
+      }
+      throw error
+    }
+  }
+
+  async verifyMFA(data) {
+    try {
+      const response = await apiClient.post("/v1/auth/mfa/verify", data)
+      if (response.data && response.data.data) {
+        return response.data.data
+      }
+      return response.data
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new Error(this.getErrorMessage(error))
+      }
+      throw error
+    }
+  }
+
   getErrorMessage(error) {
     // Try to extract specific error message from API response
     // First, support fetch-based ApiError (our ApiClient) via error.details
