@@ -5,16 +5,20 @@ import Footer from '../components/layout/footer';
 import SearchForm from '../components/ui/search-form';
 import DestinationCard from '../components/ui/destination-card';
 import { apiClient } from '../lib/api-client';
+import { useAuth } from '../contexts/auth-context';
+import { Bookmark } from 'lucide-react';
 import { Search, Map, List, Filter, X, MapPin } from 'lucide-react';
 import AdSlot from '../components/revenue/AdSlot';
 
 export default function SearchPage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [savingSearch, setSavingSearch] = useState(false);
   const [filters, setFilters] = useState({
     minPrice: null,
     maxPrice: null,
@@ -124,6 +128,41 @@ export default function SearchPage() {
     });
   };
 
+  const saveSearch = async () => {
+    if (!user) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
+
+    setSavingSearch(true);
+    try {
+      const searchFilters = {};
+      if (filters.minPrice) searchFilters.min_price = filters.minPrice;
+      if (filters.maxPrice) searchFilters.max_price = filters.maxPrice;
+      if (filters.stars.length > 0) searchFilters.stars = filters.stars;
+      if (filters.amenities.length > 0) searchFilters.amenities = filters.amenities;
+      if (filters.ratingMin) searchFilters.rating_min = filters.ratingMin;
+
+      await apiClient.post('/v1/user/saved-searches', {
+        destination: destination,
+        check_in: checkIn || null,
+        check_out: checkOut || null,
+        guests: guests,
+        rooms: rooms,
+        filters: searchFilters,
+        name: `${destination} - ${checkIn} to ${checkOut}`,
+        notification_enabled: false,
+      });
+
+      alert('Search saved successfully!');
+    } catch (err) {
+      console.error('Error saving search:', err);
+      alert('Failed to save search. Please try again.');
+    } finally {
+      setSavingSearch(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
@@ -167,6 +206,17 @@ export default function SearchPage() {
               </div>
               
               <div className="flex items-center gap-4">
+                {/* Save Search Button */}
+                {user && (
+                  <button
+                    onClick={saveSearch}
+                    disabled={savingSearch}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Bookmark className="w-4 h-4" />
+                    {savingSearch ? 'Saving...' : 'Save Search'}
+                  </button>
+                )}
                 {/* View Mode Toggle */}
                 <div className="flex items-center bg-white rounded-lg border border-gray-200 p-1">
                   <button

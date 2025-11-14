@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import sys
+import os
 
 from .api.routers import auth_router, tenant_router, user_router
 from .api.middleware import (
@@ -68,8 +69,8 @@ async def lifespan(app: FastAPI):
     # Initialize external services
     logger.info("External services initialized")
     
-    # Start hotel data scheduler if available
-    if SEARCH_BOOKING_AVAILABLE:
+    # Start hotel data scheduler if available and not disabled
+    if SEARCH_BOOKING_AVAILABLE and not os.getenv("DISABLE_SCHEDULER"):
         try:
             from search_booking_module.scraping.scheduler import start_scheduler, stop_scheduler
             await start_scheduler()
@@ -166,6 +167,14 @@ app.include_router(user_router, prefix="/api/v1")
 if SEARCH_BOOKING_AVAILABLE:
     app.include_router(search_booking_router)
     logger.info("Search-booking module loaded")
+    
+    # Include user features router
+    try:
+        from search_booking_module.api.user_routers import router as user_features_router
+        app.include_router(user_features_router)
+        logger.info("User features module loaded")
+    except ImportError as e:
+        logger.warning(f"User features module not available: {e}")
 
 # Include monitoring router if available
 if MONITORING_AVAILABLE:

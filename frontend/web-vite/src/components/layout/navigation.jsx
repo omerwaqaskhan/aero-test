@@ -73,6 +73,36 @@ const Navigation = () => {
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <>
+                <a
+                  href="/favorites"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/favorites');
+                  }}
+                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  Favorites
+                </a>
+                <a
+                  href="/bookings"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/bookings');
+                  }}
+                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  Bookings
+                </a>
+                <a
+                  href="/saved-searches"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/saved-searches');
+                  }}
+                  className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  Saved Searches
+                </a>
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                     {user?.first_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}

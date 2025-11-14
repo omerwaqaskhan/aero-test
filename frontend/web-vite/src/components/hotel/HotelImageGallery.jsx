@@ -111,6 +111,13 @@ const HotelImageGallery = ({ hotel }) => {
         <ChevronLeft className="w-6 h-6 text-black" />
       </button>
 
+      {/* Favorite Button - Top Right */}
+      {hotel?.id && (
+        <div className="absolute top-6 right-6 z-10">
+          <FavoriteButton hotelId={hotel.id} />
+        </div>
+      )}
+
       {/* Image Navigation Arrows */}
       {hasImages && validImages.length > 1 && (
         <>

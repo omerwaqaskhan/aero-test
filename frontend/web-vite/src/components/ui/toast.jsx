@@ -1,91 +1,67 @@
+import React, { useEffect } from 'react';
+import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
-
-import { useState, useEffect } from "react"
-import { cn } from "../../lib/utils"
-import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react"
-
-
-const toastIcons = {
-  success: CheckCircle,
-  error: AlertCircle,
-  warning: AlertTriangle,
-  info: Info,
-}
-
-const toastStyles = {
-  success: "bg-green-50 border-green-200 text-green-800",
-  error: "bg-red-50 border-red-200 text-red-800",
-  warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
-  info: "bg-blue-50 border-blue-200 text-blue-800",
-}
-
-export function ToastComponent({ toast, onRemove }) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isLeaving, setIsLeaving] = useState(false)
+const Toast = ({ toast, onClose }) => {
+  const { id, type = 'info', title, description, duration = 5000 } = toast;
 
   useEffect(() => {
-    // Trigger entrance animation
-    const timer = setTimeout(() => setIsVisible(true), 10)
-    return () => clearTimeout(timer)
-  }, [])
-
-  useEffect(() => {
-    if (toast.duration) {
+    if (duration > 0) {
       const timer = setTimeout(() => {
-        handleRemove()
-      }, toast.duration)
-      return () => clearTimeout(timer)
+        onClose(id);
+      }, duration);
+      return () => clearTimeout(timer);
     }
-  }, [toast.duration])
+  }, [duration, id, onClose]);
 
-  const handleRemove = () => {
-    setIsLeaving(true)
-    setTimeout(() => {
-      onRemove(toast.id)
-    }, 300)
-  }
+  const icons = {
+    success: CheckCircle,
+    error: AlertCircle,
+    warning: AlertTriangle,
+    info: Info,
+  };
 
-  const Icon = toastIcons[toast.type]
+  const colors = {
+    success: 'bg-green-50 border-green-200 text-green-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
+  };
+
+  const Icon = icons[type] || Info;
+  const message = description || title || '';
 
   return (
     <div
-      className={cn(
-        "relative flex w-full items-center space-x-3 rounded-lg border p-4 shadow-lg transition-all duration-300 ease-in-out",
-        toastStyles[toast.type],
-        isVisible && !isLeaving
-          ? "translate-x-0 opacity-100"
-          : "translate-x-full opacity-0"
-      )}
+      className={`flex items-start gap-3 px-4 py-3 rounded-lg shadow-lg border animate-fade-in ${colors[type]}`}
+      role="alert"
     >
-      <Icon className="h-5 w-5 flex-shrink-0" />
-      <div className="flex-1">
-        {toast.title && (
-          <p className="text-sm font-medium">{toast.title}</p>
-        )}
-        {toast.description && (
-          <p className="text-sm opacity-90">{toast.description}</p>
-        )}
+      <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        {title && <p className="text-sm font-semibold">{title}</p>}
+        {description && <p className="text-sm mt-1">{description}</p>}
+        {!title && !description && <p className="text-sm font-medium">{message}</p>}
       </div>
       <button
-        onClick={handleRemove}
-        className="flex-shrink-0 rounded-md p-1 hover:bg-black/10 focus:outline-none focus:ring-2 focus:ring-offset-2"
+        onClick={() => onClose(id)}
+        className="ml-2 text-current opacity-70 hover:opacity-100 transition-opacity flex-shrink-0"
+        aria-label="Close"
       >
-        <X className="h-4 w-4" />
+        <X className="w-4 h-4" />
       </button>
     </div>
-  )
-}
+  );
+};
 
-export function ToastContainer({ toasts, onRemove }) {
+export function ToastContainer({ toasts = [], onRemove }) {
+  if (toasts.length === 0) return null;
+
   return (
-    <div className="fixed top-4 right-4 z-50 flex w-96 flex-col space-y-2">
+    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md">
       {toasts.map((toast) => (
-        <ToastComponent
-          key={toast.id}
-          toast={toast}
-          onRemove={onRemove}
-        />
+        <Toast key={toast.id} toast={toast} onClose={onRemove} />
       ))}
     </div>
-  )
+  );
 }
+
+export default Toast;

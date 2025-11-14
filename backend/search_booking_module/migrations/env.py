@@ -19,6 +19,13 @@ from search_booking_module.infrastructure.db.models import (
     BookingClickModel,
     ReviewModel
 )
+from search_booking_module.infrastructure.db.user_models import (
+    FavoriteModel,
+    BookingModel,
+    PriceAlertModel,
+    SavedSearchModel,
+    UserReviewModel
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

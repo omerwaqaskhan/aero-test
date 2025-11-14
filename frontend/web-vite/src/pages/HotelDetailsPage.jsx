@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { X } from 'lucide-react';
 import Navigation from '../components/layout/navigation';
 import Footer from '../components/layout/footer';
 import { apiClient } from '../lib/api-client';
@@ -10,6 +11,8 @@ import RoomListingSection from '../components/hotel/RoomListingSection';
 import ReviewsSection from '../components/hotel/ReviewsSection';
 import LeadCaptureModal from '../components/revenue/LeadCaptureModal';
 import AdSlot from '../components/revenue/AdSlot';
+import FavoriteButton from '../components/user/FavoriteButton';
+import PriceAlertForm from '../components/user/PriceAlertForm';
 
 const HotelDetailsPage = () => {
   const { hotelId } = useParams();
@@ -23,6 +26,7 @@ const HotelDetailsPage = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('Overview');
   const [showLeadModal, setShowLeadModal] = useState(false);
+  const [showPriceAlertModal, setShowPriceAlertModal] = useState(false);
   const [selectedDates, setSelectedDates] = useState({
     checkIn: searchParams.get('check_in') || '',
     checkOut: searchParams.get('check_out') || '',
@@ -171,19 +175,27 @@ const HotelDetailsPage = () => {
       
       <HotelImageGallery hotel={hotel} />
       
-      {/* Claim Hotel Banner */}
+      {/* Action Banner */}
       <div className="bg-blue-50 border-b border-blue-200">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-700">
-              Are you the owner of this hotel?
-            </p>
-            <Link
-              to={`/hotels/${hotelId}/claim`}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-700">
+                Are you the owner of this hotel?
+              </p>
+              <Link
+                to={`/hotels/${hotelId}/claim`}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Claim This Hotel
+              </Link>
+            </div>
+            <button
+              onClick={() => setShowPriceAlertModal(true)}
+              className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
             >
-              Claim This Hotel
-            </Link>
+              Set Price Alert
+            </button>
           </div>
         </div>
       </div>
@@ -221,6 +233,30 @@ const HotelDetailsPage = () => {
           onClose={() => setShowLeadModal(false)}
           onSuccess={handleLeadSuccess}
         />
+      )}
+
+      {showPriceAlertModal && hotel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Create Price Alert</h2>
+              <button
+                onClick={() => setShowPriceAlertModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <PriceAlertForm
+              hotel={hotel}
+              onSuccess={() => {
+                setShowPriceAlertModal(false);
+                alert('Price alert created successfully!');
+              }}
+              onClose={() => setShowPriceAlertModal(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -13,6 +13,9 @@ import ClaimHotelPage from './pages/ClaimHotelPage.jsx'
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx'
 import HotelOwnerDashboard from './pages/HotelOwnerDashboard.jsx'
 import MonitoringDashboard from './pages/MonitoringDashboard.jsx'
+import BookingHistoryPage from './pages/BookingHistoryPage.jsx'
+import FavoritesPage from './pages/FavoritesPage.jsx'
+import SavedSearchesPage from './pages/SavedSearchesPage.jsx'
 
 export default function App() {
   return (
@@ -32,6 +35,9 @@ export default function App() {
       <Route path="/admin" element={<AdminDashboardPage />} />
       <Route path="/monitoring" element={<MonitoringDashboard />} />
       <Route path="/owner/dashboard" element={<HotelOwnerDashboard />} />
+      <Route path="/bookings" element={<BookingHistoryPage />} />
+      <Route path="/favorites" element={<FavoritesPage />} />
+      <Route path="/saved-searches" element={<SavedSearchesPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
