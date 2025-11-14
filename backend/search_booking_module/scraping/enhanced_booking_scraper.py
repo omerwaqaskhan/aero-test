@@ -655,19 +655,42 @@ class EnhancedBookingScraper(BaseScraper):
         try:
             # Booking.com image quality upgrades
             if 'bstatic.com' in url or 'booking.com' in url:
-                # Replace size-limited URLs with higher quality
-                # max300 -> max1280x900 (high quality)
-                # max500 -> max1280x900
-                # max1024x768 -> max1280x900
-                # square240 -> max1280x900
-                # square64 -> max1280x900
-                url = re.sub(r'/max\d+x?\d*/', '/max1280x900/', url)
-                url = re.sub(r'/square\d+/', '/max1280x900/', url)
-                url = re.sub(r'/max\d+/', '/max1280x900/', url)
+                # Replace size-limited URLs with highest quality
+                # max300, max500 -> max1920x1080 (highest quality)
+                # max1024x768 -> max1920x1080
+                # square240, square64 -> max1920x1080
+                url = re.sub(r'/max\d+x?\d*/', '/max1920x1080/', url)
+                url = re.sub(r'/square\d+/', '/max1920x1080/', url)
+                url = re.sub(r'/max\d+/', '/max1920x1080/', url)
             
-            # Remove size parameters from query string if present
+            # Expedia image quality upgrades
+            elif 'expedia.com' in url or 'media.expedia.com' in url:
+                url = re.sub(r'[?&]w=\d+', '?w=1920', url)
+                url = re.sub(r'[?&]h=\d+', '&h=1080', url)
+                if '?' not in url:
+                    url += '?w=1920&h=1080'
+                elif 'w=' not in url:
+                    url += '&w=1920&h=1080'
+            
+            # Hotels.com image quality upgrades
+            elif 'hotels.com' in url or 'media.hotels.com' in url:
+                url = re.sub(r'[?&]size=\w+', '?size=large', url)
+                if '?' not in url:
+                    url += '?size=large'
+                elif 'size=' not in url:
+                    url += '&size=large'
+            
+            # Agoda image quality upgrades
+            elif 'agoda.net' in url or 'agoda.com' in url:
+                url = re.sub(r'[?&]s=\w+', '?s=1920x1080', url)
+                if '?' not in url:
+                    url += '?s=1920x1080'
+                elif 's=' not in url:
+                    url += '&s=1920x1080'
+            
+            # Remove size parameters from query string if present (for Booking.com)
             # Keep the hash/security parameter but remove size limits
-            if '?' in url:
+            if 'bstatic.com' in url and '?' in url:
                 base_url, query = url.split('?', 1)
                 # Keep only the hash parameter (k=...)
                 params = query.split('&')
@@ -807,12 +830,19 @@ class EnhancedBookingScraper(BaseScraper):
             
             # Sort by quality (prefer larger images first)
             def quality_score(url):
-                if '/max1280x900/' in url or '/max1920x1080/' in url:
-                    return 3
+                if '/max1920x1080/' in url:
+                    return 5  # Highest quality
+                elif '/max1280x900/' in url:
+                    return 4
                 elif '/max1024x768/' in url:
+                    return 3
+                elif '/max500/' in url:
                     return 2
-                elif '/max500/' in url or '/max300/' in url:
+                elif '/max300/' in url:
                     return 1
+                # Check for other high quality indicators
+                if any(indicator in url.lower() for indicator in ['large', 'original', 'full', 'high']):
+                    return 4
                 return 2  # Default
             
             images.sort(key=quality_score, reverse=True)

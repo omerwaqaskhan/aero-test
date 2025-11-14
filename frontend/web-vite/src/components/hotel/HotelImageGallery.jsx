@@ -21,16 +21,56 @@ const HotelImageGallery = ({ hotel }) => {
     }
   };
 
+  // Function to upgrade image quality
+  const upgradeImageUrl = (url) => {
+    if (!url) return url;
+    
+    // Booking.com image quality upgrade
+    if (url.includes('bstatic.com')) {
+      // Replace max300, max500, etc. with max1920x1080
+      url = url.replace(/\/max\d+\//g, '/max1920x1080/');
+      url = url.replace(/\/max\d+x\d+\//g, '/max1920x1080/');
+    }
+    
+    // Expedia image quality upgrade
+    if (url.includes('expedia.com') || url.includes('media.expedia.com')) {
+      url = url.replace(/[?&]w=\d+/g, '?w=1920');
+      url = url.replace(/[?&]h=\d+/g, '&h=1080');
+      if (!url.includes('w=')) {
+        url += (url.includes('?') ? '&' : '?') + 'w=1920&h=1080';
+      }
+    }
+    
+    // Hotels.com image quality upgrade
+    if (url.includes('hotels.com') || url.includes('media.hotels.com')) {
+      url = url.replace(/[?&]size=\w+/g, '?size=large');
+      if (!url.includes('size=')) {
+        url += (url.includes('?') ? '&' : '?') + 'size=large';
+      }
+    }
+    
+    return url;
+  };
+
   return (
-    <div className="relative w-full h-[30vh] bg-gray-200 overflow-hidden">
+    <div className="relative w-full h-[60vh] min-h-[500px] bg-gray-200 overflow-hidden">
       {/* Main Image */}
       {hasImages ? (
         <img
-          src={images[selectedImageIndex]}
+          src={upgradeImageUrl(images[selectedImageIndex])}
           alt={hotel.name}
           className="w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
           onError={(e) => {
-            e.target.src = '/images/bg.jpg';
+            // Try original URL if upgraded fails
+            const originalUrl = images[selectedImageIndex];
+            if (e.target.src !== originalUrl && originalUrl) {
+              e.target.src = originalUrl;
+            } else {
+              e.target.src = '/images/bg.jpg';
+            }
           }}
         />
       ) : (

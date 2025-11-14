@@ -535,6 +535,35 @@ class HotelDataCollector:
             if not images and hotel_data.get('image_url'):
                 images = [hotel_data['image_url']]
             
+            # Upgrade image quality before saving
+            if images:
+                upgraded_images = []
+                for img_url in images:
+                    if isinstance(img_url, str):
+                        # Upgrade Booking.com images
+                        if 'bstatic.com' in img_url:
+                            import re
+                            img_url = re.sub(r'/max\d+x?\d*/', '/max1920x1080/', img_url)
+                            img_url = re.sub(r'/square\d+/', '/max1920x1080/', img_url)
+                            img_url = re.sub(r'/max\d+/', '/max1920x1080/', img_url)
+                        # Upgrade Expedia images
+                        elif 'expedia.com' in img_url or 'media.expedia.com' in img_url:
+                            import re
+                            img_url = re.sub(r'[?&]w=\d+', '?w=1920', img_url)
+                            img_url = re.sub(r'[?&]h=\d+', '&h=1080', img_url)
+                            if '?' not in img_url:
+                                img_url += '?w=1920&h=1080'
+                        # Upgrade Hotels.com images
+                        elif 'hotels.com' in img_url or 'media.hotels.com' in img_url:
+                            import re
+                            img_url = re.sub(r'[?&]size=\w+', '?size=large', img_url)
+                            if '?' not in img_url:
+                                img_url += '?size=large'
+                        upgraded_images.append(img_url)
+                    else:
+                        upgraded_images.append(img_url)
+                images = upgraded_images
+            
             new_hotel = HotelModel(
                 provider_hotel_id=f"{source}_{hotel_data.get('name', '')[:50]}",
                 provider=provider.value,
