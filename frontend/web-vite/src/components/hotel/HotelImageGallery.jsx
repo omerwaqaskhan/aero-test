@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 
@@ -7,17 +7,40 @@ const HotelImageGallery = ({ hotel }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const images = hotel?.images || [];
-  const hasImages = images.length > 0;
+  // Filter and validate images - ensure they're valid URLs and hotel-specific
+  const validImages = images.filter(img => {
+    if (!img || typeof img !== 'string') return false;
+    // Must be a valid URL
+    try {
+      new URL(img);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  const hasImages = validImages.length > 0;
+
+  // Reset image index when hotel changes
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [hotel?.id]);
+
+  // Ensure selectedImageIndex is valid
+  useEffect(() => {
+    if (selectedImageIndex >= validImages.length && validImages.length > 0) {
+      setSelectedImageIndex(0);
+    }
+  }, [validImages.length, selectedImageIndex]);
 
   const nextImage = () => {
     if (hasImages) {
-      setSelectedImageIndex((prev) => (prev + 1) % images.length);
+      setSelectedImageIndex((prev) => (prev + 1) % validImages.length);
     }
   };
 
   const prevImage = () => {
     if (hasImages) {
-      setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
+      setSelectedImageIndex((prev) => (prev - 1 + validImages.length) % validImages.length);
     }
   };
 
@@ -53,19 +76,20 @@ const HotelImageGallery = ({ hotel }) => {
   };
 
   return (
-    <div className="relative w-full h-[60vh] min-h-[500px] bg-gray-200 overflow-hidden">
+    <div className="relative w-full h-[40vh] min-h-[350px] max-h-[500px] bg-gray-200 overflow-hidden">
       {/* Main Image */}
       {hasImages ? (
         <img
-          src={upgradeImageUrl(images[selectedImageIndex])}
-          alt={hotel.name}
+          src={upgradeImageUrl(validImages[selectedImageIndex])}
+          alt={`${hotel?.name || 'Hotel'} - Image ${selectedImageIndex + 1}`}
           className="w-full h-full object-cover"
           loading="eager"
           decoding="async"
           fetchpriority="high"
+          key={`${hotel?.id}-${selectedImageIndex}`}
           onError={(e) => {
             // Try original URL if upgraded fails
-            const originalUrl = images[selectedImageIndex];
+            const originalUrl = validImages[selectedImageIndex];
             if (e.target.src !== originalUrl && originalUrl) {
               e.target.src = originalUrl;
             } else {
@@ -88,7 +112,7 @@ const HotelImageGallery = ({ hotel }) => {
       </button>
 
       {/* Image Navigation Arrows */}
-      {hasImages && images.length > 1 && (
+      {hasImages && validImages.length > 1 && (
         <>
           <button
             onClick={prevImage}
@@ -106,11 +130,11 @@ const HotelImageGallery = ({ hotel }) => {
       )}
 
       {/* Image Dots Indicator */}
-      {hasImages && images.length > 1 && (
+      {hasImages && validImages.length > 1 && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          {images.map((_, index) => (
+          {validImages.map((_, index) => (
             <button
-              key={index}
+              key={`${hotel?.id}-dot-${index}`}
               onClick={() => setSelectedImageIndex(index)}
               className={`w-2 h-2 rounded-full transition-all ${
                 index === selectedImageIndex ? 'bg-white w-8' : 'bg-white/50'

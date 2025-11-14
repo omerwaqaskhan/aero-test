@@ -47,7 +47,24 @@ const HotelDetailsPage = () => {
       const response = await apiClient.get(`/v1/search-booking/hotels/${hotelId}?${params.toString()}`);
       
       if (response.data) {
-        setHotel({ ...response.data.hotel, review_count: reviews.length });
+        // Ensure hotel data is properly set with validated images
+        const hotelData = response.data.hotel;
+        // Filter and validate images
+        const validImages = (hotelData?.images || []).filter(img => {
+          if (!img || typeof img !== 'string') return false;
+          try {
+            new URL(img);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        
+        setHotel({ 
+          ...hotelData, 
+          images: validImages,
+          review_count: reviews.length 
+        });
         setRooms(response.data.rooms || []);
         setOffers(response.data.offers || []);
         setReviews(response.data.reviews || []);
