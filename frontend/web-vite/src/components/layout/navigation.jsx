@@ -45,7 +45,11 @@ const Navigation = () => {
                 Home
               </a>
               <a 
-                href="#hotels" 
+                href="/hotels"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/hotels');
+                }}
                 className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
               >
                 Hotels
@@ -77,6 +81,18 @@ const Navigation = () => {
                     {user?.first_name || user?.email?.split('@')[0]}
                   </span>
                 </div>
+                {(user?.role === 'super_admin' || user?.role === 'tenant_admin' || user?.user_role === 'super_admin' || user?.user_role === 'tenant_admin') && (
+                  <a
+                    href="/admin"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate('/admin');
+                    }}
+                    className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                  >
+                    Admin
+                  </a>
+                )}
                 <button 
                   onClick={handleLogout}
                   className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 px-4 py-2 text-sm font-medium transition-colors"
@@ -126,9 +142,13 @@ const Navigation = () => {
               Home
             </a>
             <a
-              href="#hotels"
+              href="/hotels"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/hotels');
+                setIsMenuOpen(false);
+              }}
               className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
             >
               Hotels
             </a>

@@ -1,14 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Calendar, Users, ChevronDown } from 'lucide-react';
 
-const SearchForm = ({ onSearch }) => {
+const SearchForm = ({ 
+  onSearch, 
+  initialDestination = '',
+  initialCheckIn = '',
+  initialCheckOut = '',
+  initialGuests = 1,
+  initialRooms = 1
+}) => {
+  const navigate = useNavigate();
   const [searchData, setSearchData] = useState({
-    destination: '',
-    checkIn: '',
-    checkOut: '',
-    guests: 1,
-    rooms: 1
+    destination: initialDestination,
+    checkIn: initialCheckIn,
+    checkOut: initialCheckOut,
+    guests: initialGuests,
+    rooms: initialRooms
   });
+
+  useEffect(() => {
+    setSearchData({
+      destination: initialDestination,
+      checkIn: initialCheckIn,
+      checkOut: initialCheckOut,
+      guests: initialGuests,
+      rooms: initialRooms
+    });
+  }, [initialDestination, initialCheckIn, initialCheckOut, initialGuests, initialRooms]);
 
   const [showGuestsDropdown, setShowGuestsDropdown] = useState(false);
 
@@ -16,6 +35,16 @@ const SearchForm = ({ onSearch }) => {
     e.preventDefault();
     if (onSearch) {
       onSearch(searchData);
+    } else {
+      // Navigate to search page with query params
+      const params = new URLSearchParams({
+        destination: searchData.destination,
+        check_in: searchData.checkIn,
+        check_out: searchData.checkOut,
+        guests: searchData.guests.toString(),
+        rooms: searchData.rooms.toString()
+      });
+      navigate(`/search?${params.toString()}`);
     }
   };
 

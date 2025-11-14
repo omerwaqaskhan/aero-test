@@ -143,6 +143,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/forgot-password",
             "/api/v1/auth/reset-password",
             "/api/v1/auth/social",
+            "/api/v1/search-booking",  # Allow search-booking endpoints without auth
         ]
     
     async def dispatch(self, request: Request, call_next):

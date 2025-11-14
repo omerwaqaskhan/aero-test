@@ -27,11 +27,20 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config)
-      const data = await response.json()
+      
+      // Check if response is JSON
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json()
+      } else {
+        const text = await response.text()
+        data = { message: text || "An error occurred" }
+      }
 
       if (!response.ok) {
         throw new ApiError(
-          data.message || data.error || "An error occurred",
+          data.detail || data.message || data.error || "An error occurred",
           response.status,
           data,
           response
@@ -49,7 +58,7 @@ class ApiClient {
 
       // Network or other errors
       throw new ApiError(
-        "Network error. Please check your connection.",
+        error.message || "Network error. Please check your connection.",
         0,
         error
       )

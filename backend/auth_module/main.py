@@ -26,6 +26,22 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Import search-booking router
+try:
+    from search_booking_module.api.routers import router as search_booking_router
+    SEARCH_BOOKING_AVAILABLE = True
+except ImportError as e:
+    SEARCH_BOOKING_AVAILABLE = False
+    logger.warning(f"Search-booking module not available: {e}")
+
+# Import revenue router
+try:
+    from revenue_module.api.routers import router as revenue_router
+    REVENUE_AVAILABLE = True
+except ImportError as e:
+    REVENUE_AVAILABLE = False
+    logger.warning(f"Revenue module not available: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,10 +60,30 @@ async def lifespan(app: FastAPI):
     # Initialize external services
     logger.info("External services initialized")
     
+    # Start hotel data scheduler if available
+    if SEARCH_BOOKING_AVAILABLE:
+        try:
+            from search_booking_module.scraping.scheduler import start_scheduler, stop_scheduler
+            await start_scheduler()
+            logger.info("Hotel data scheduler started")
+            app.state.hotel_scheduler = True
+        except Exception as e:
+            logger.warning(f"Could not start hotel data scheduler: {e}")
+            app.state.hotel_scheduler = False
+    
     yield
     
     # Shutdown
     logger.info("Shutting down authentication service...")
+    
+    # Stop hotel data scheduler if started
+    if SEARCH_BOOKING_AVAILABLE and getattr(app.state, 'hotel_scheduler', False):
+        try:
+            from search_booking_module.scraping.scheduler import stop_scheduler
+            await stop_scheduler()
+            logger.info("Hotel data scheduler stopped")
+        except Exception as e:
+            logger.error(f"Error stopping hotel data scheduler: {e}")
 
 
 # Create FastAPI application
@@ -117,6 +153,16 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(tenant_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
+
+# Include search-booking router if available
+if SEARCH_BOOKING_AVAILABLE:
+    app.include_router(search_booking_router)
+    logger.info("Search-booking module loaded")
+
+# Include revenue router if available
+if REVENUE_AVAILABLE:
+    app.include_router(revenue_router)
+    logger.info("Revenue module loaded")
 
 
 # Root endpoint

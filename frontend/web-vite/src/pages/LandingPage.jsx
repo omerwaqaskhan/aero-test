@@ -37,7 +37,7 @@ const LandingPage = () => {
       {/* Search */}
       <section id="search" className="py-12 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <SearchForm onSearch={(data) => console.log('Search data:', data)} />
+          <SearchForm />
         </div>
       </section>
 

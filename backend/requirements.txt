@@ -24,6 +24,16 @@ redis==5.0.1
 
 # HTTP client
 httpx==0.25.2
+aiohttp==3.9.1
+brotli==1.1.0
+
+# Web scraping
+beautifulsoup4==4.12.2
+lxml==4.9.3
+playwright==1.40.0
+
+# Task scheduling
+apscheduler==3.10.4
 
 # Email
 aiosmtplib==3.0.1
@@ -35,6 +45,9 @@ boto3==1.34.0
 # Monitoring & Logging
 structlog==23.2.0
 prometheus-client==0.19.0
+
+# Payment Processing
+stripe==7.0.0
 
 # Development
 pytest==7.4.3

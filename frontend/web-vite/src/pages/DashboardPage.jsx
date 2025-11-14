@@ -7,6 +7,7 @@ import SearchForm from '../components/ui/search-form';
 import DestinationCard from '../components/ui/destination-card';
 import TestimonialCard from '../components/ui/testimonial-card';
 import FeatureCard from '../components/ui/feature-card';
+import SubscriptionUpgrade from '../components/revenue/SubscriptionUpgrade';
 import { useAuth } from '../contexts/auth-context';
 
 export default function DashboardPage() {
@@ -23,7 +24,7 @@ export default function DashboardPage() {
       id: 1,
       name: 'Paris',
       country: 'France',
-      image: '/images/paris.jpg',
+      image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1600&auto=format&fit=crop',
       price: '€89',
       originalPrice: '€120',
       rating: 4.8,
@@ -36,7 +37,7 @@ export default function DashboardPage() {
       id: 2,
       name: 'Tokyo',
       country: 'Japan',
-      image: '/images/tokyo.jpg',
+      image: 'https://images.unsplash.com/photo-1549692520-acc6669e2f0c?q=80&w=1600&auto=format&fit=crop',
       price: '¥12,500',
       originalPrice: '¥15,000',
       rating: 4.9,
@@ -49,7 +50,7 @@ export default function DashboardPage() {
       id: 3,
       name: 'New York',
       country: 'USA',
-      image: '/images/newyork.jpg',
+      image: 'https://images.unsplash.com/photo-1468436139062-f60a71c5c892?q=80&w=1600&auto=format&fit=crop',
       price: '$156',
       originalPrice: '$200',
       rating: 4.7,
@@ -62,7 +63,7 @@ export default function DashboardPage() {
       id: 4,
       name: 'London',
       country: 'UK',
-      image: '/images/london.jpg',
+      image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=1600&auto=format&fit=crop',
       price: '£98',
       originalPrice: '£130',
       rating: 4.6,
@@ -75,7 +76,7 @@ export default function DashboardPage() {
       id: 5,
       name: 'Dubai',
       country: 'UAE',
-      image: '/images/dubai.jpg',
+      image: 'https://images.unsplash.com/photo-1512453979798-5e66bb9276e4?q=80&w=1600&auto=format&fit=crop',
       price: 'AED 450',
       originalPrice: 'AED 600',
       rating: 4.8,
@@ -88,7 +89,7 @@ export default function DashboardPage() {
       id: 6,
       name: 'Barcelona',
       country: 'Spain',
-      image: '/images/barcelona.jpg',
+      image: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?q=80&w=1600&auto=format&fit=crop',
       price: '€75',
       originalPrice: '€95',
       rating: 4.5,
@@ -176,10 +177,19 @@ export default function DashboardPage() {
       <section id="search" className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto">
-            <SearchForm onSearch={(data) => console.log('Search data:', data)} />
+            <SearchForm />
           </div>
         </div>
       </section>
+
+      {/* Subscription Section */}
+      {user && (
+        <section className="py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <SubscriptionUpgrade user={user} />
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="py-16 bg-gray-50">
