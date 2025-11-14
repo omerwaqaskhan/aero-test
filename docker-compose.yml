@@ -138,6 +138,40 @@ services:
       ENABLE_PASSWORD_RESET: true
       ENABLE_USER_REGISTRATION: true
       ENABLE_TENANT_CREATION: true
+      
+      # Scraping Configuration
+      SCRAPER_RATE_LIMIT: 2.0
+      SCRAPER_MAX_CONCURRENT: 5
+      SCRAPER_MAX_RETRIES: 3
+      SCRAPER_TIMEOUT: 30
+      
+      # Proxy Configuration (comma-separated list)
+      # Example: SCRAPER_PROXIES=http://proxy1:port,http://proxy2:port
+      SCRAPER_PROXIES: ""
+      
+      # Monitoring Configuration
+      MONITORING_RETENTION_HOURS: 24
+      MONITORING_SUCCESS_RATE_MIN: 0.8
+      MONITORING_RESPONSE_TIME_MAX: 10.0
+      MONITORING_ERROR_RATE_MAX: 0.2
+      MONITORING_CONSECUTIVE_FAILURES_MAX: 5
+      
+      # Alerting Configuration
+      # ALERT_WEBHOOK_URL: https://your-webhook-url.com/alerts
+      ALERT_WEBHOOK_URL: ""
+      ALERT_EMAIL_ENABLED: false
+      ALERT_MAX_ALERTS: 1000
+      
+      # Price Checking Configuration
+      PRICE_CHECK_ENABLED: true
+      PRICE_CHECK_INTERVAL_HOURS: 6
+      PRICE_CHECK_MAX_CONCURRENT: 10
+      PRICE_CHECK_MAX_AGE_HOURS: 24
+      
+      # Proxy Pool Configuration
+      PROXY_POOL_HEALTH_CHECK_INTERVAL: 300
+      PROXY_POOL_MAX_CONSECUTIVE_FAILURES: 3
+      PROXY_POOL_MIN_SUCCESS_RATE: 0.5
     ports:
       - "8000:8000"
     depends_on:

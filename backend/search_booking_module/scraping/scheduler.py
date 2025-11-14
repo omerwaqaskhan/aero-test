@@ -15,9 +15,11 @@ from .config import (
     AUTO_REFRESH_ENABLED,
     REFRESH_TIME,
     REFRESH_INTERVAL_HOURS,
-    POPULAR_DESTINATIONS
+    POPULAR_DESTINATIONS,
+    PRICE_CHECK_ENABLED
 )
 from auth_module.infrastructure.db.database import SessionLocal
+from .price_monitor_service import start_price_monitor, stop_price_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,15 @@ class HotelDataScheduler:
         self.scheduler.start()
         self.is_running = True
         logger.info("Hotel data scheduler started")
+        
+        # Start price monitoring service if enabled
+        if PRICE_CHECK_ENABLED:
+            try:
+                await start_price_monitor()
+                logger.info("Price monitoring service started")
+            except Exception as e:
+                logger.error(f"Failed to start price monitoring service: {e}")
+                # Continue even if price monitoring fails
     
     async def stop(self):
         """Stop the scheduler."""
@@ -85,6 +96,14 @@ class HotelDataScheduler:
             return
         
         logger.info("Stopping hotel data scheduler...")
+        
+        # Stop price monitoring service
+        try:
+            await stop_price_monitor()
+            logger.info("Price monitoring service stopped")
+        except Exception as e:
+            logger.error(f"Error stopping price monitoring service: {e}")
+        
         self.scheduler.shutdown(wait=True)
         self.is_running = False
         logger.info("Hotel data scheduler stopped")

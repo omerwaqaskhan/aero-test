@@ -82,16 +82,28 @@ const Navigation = () => {
                   </span>
                 </div>
                 {(user?.role === 'super_admin' || user?.role === 'tenant_admin' || user?.user_role === 'super_admin' || user?.user_role === 'tenant_admin') && (
-                  <a
-                    href="/admin"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate('/admin');
-                    }}
-                    className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
-                  >
-                    Admin
-                  </a>
+                  <>
+                    <a
+                      href="/admin"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate('/admin');
+                      }}
+                      className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                    >
+                      Admin
+                    </a>
+                    <a
+                      href="/monitoring"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate('/monitoring');
+                      }}
+                      className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+                    >
+                      Monitoring
+                    </a>
+                  </>
                 )}
                 <button 
                   onClick={handleLogout}

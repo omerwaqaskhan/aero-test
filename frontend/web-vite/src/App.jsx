@@ -12,6 +12,7 @@ import HotelDetailsPage from './pages/HotelDetailsPage.jsx'
 import ClaimHotelPage from './pages/ClaimHotelPage.jsx'
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx'
 import HotelOwnerDashboard from './pages/HotelOwnerDashboard.jsx'
+import MonitoringDashboard from './pages/MonitoringDashboard.jsx'
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/hotels/:hotelId" element={<HotelDetailsPage />} />
       <Route path="/hotels/:hotelId/claim" element={<ClaimHotelPage />} />
       <Route path="/admin" element={<AdminDashboardPage />} />
+      <Route path="/monitoring" element={<MonitoringDashboard />} />
       <Route path="/owner/dashboard" element={<HotelOwnerDashboard />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

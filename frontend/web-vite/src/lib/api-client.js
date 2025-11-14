@@ -13,8 +13,16 @@ class ApiClient {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`
     
+    // Get access token from localStorage
+    const token = localStorage.getItem("access_token")
+    
     const defaultHeaders = {
       "Content-Type": "application/json",
+    }
+    
+    // Add Authorization header if token exists
+    if (token) {
+      defaultHeaders["Authorization"] = `Bearer ${token}`
     }
 
     const config = {

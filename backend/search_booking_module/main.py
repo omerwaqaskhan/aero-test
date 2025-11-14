@@ -10,6 +10,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from search_booking_module.api.routers import router as search_booking_router
+from search_booking_module.api.monitoring_routers import router as monitoring_router
 from search_booking_module.scraping.scheduler import start_scheduler, stop_scheduler
 
 # Configure logging
@@ -37,6 +38,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(search_booking_router, prefix="/api/v1/search-booking", tags=["search-booking"])
+app.include_router(monitoring_router)  # Already has /api/v1/monitoring prefix
 
 
 @app.on_event("startup")

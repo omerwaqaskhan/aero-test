@@ -34,6 +34,14 @@ except ImportError as e:
     SEARCH_BOOKING_AVAILABLE = False
     logger.warning(f"Search-booking module not available: {e}")
 
+# Import monitoring router
+try:
+    from search_booking_module.api.monitoring_routers import router as monitoring_router
+    MONITORING_AVAILABLE = True
+except ImportError as e:
+    MONITORING_AVAILABLE = False
+    logger.warning(f"Monitoring module not available: {e}")
+
 # Import revenue router
 try:
     from revenue_module.api.routers import router as revenue_router
@@ -158,6 +166,11 @@ app.include_router(user_router, prefix="/api/v1")
 if SEARCH_BOOKING_AVAILABLE:
     app.include_router(search_booking_router)
     logger.info("Search-booking module loaded")
+
+# Include monitoring router if available
+if MONITORING_AVAILABLE:
+    app.include_router(monitoring_router)
+    logger.info("Monitoring module loaded")
 
 # Include revenue router if available
 if REVENUE_AVAILABLE:

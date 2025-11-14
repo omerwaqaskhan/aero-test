@@ -144,6 +144,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/api/v1/auth/reset-password",
             "/api/v1/auth/social",
             "/api/v1/search-booking",  # Allow search-booking endpoints without auth
+            # Note: /api/v1/monitoring and /api/v1/revenue require authentication
+            # They should be accessed with a valid Bearer token
         ]
     
     async def dispatch(self, request: Request, call_next):

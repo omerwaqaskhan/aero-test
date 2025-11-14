@@ -60,54 +60,79 @@ async def populate_database(destinations: list = None, max_hotels_per_destinatio
     db: Session = SessionLocal()
     
     try:
-        # Create data collector
-        collector = HotelDataCollector(db_session=db)
+        # Create data collector with concurrent scraping (uses config defaults)
+        collector = HotelDataCollector(
+            db_session=db,
+            use_enhanced_scraping=True
+        )
         
-        # Use provided destinations or default
-        if destinations is None:
-            destinations = POPULAR_DESTINATIONS
+        # Start concurrent scraper
+        await collector.start()
+        logger.info("Concurrent scraper started")
         
-        logger.info(f"Starting data collection for {len(destinations)} destinations...")
-        
-        # Collect hotels for each destination
-        results = {}
-        for dest in destinations:
-            city = dest.get('city')
-            country = dest.get('country')
+        try:
+            # Use provided destinations or default
+            if destinations is None:
+                destinations = POPULAR_DESTINATIONS
             
+            logger.info(f"Starting data collection for {len(destinations)} destinations...")
+            
+            # Collect hotels for each destination
+            results = {}
+            for dest in destinations:
+                city = dest.get('city')
+                country = dest.get('country')
+                
+                logger.info(f"\n{'='*60}")
+                logger.info(f"Collecting hotels for {city}, {country}")
+                logger.info(f"{'='*60}")
+                
+                try:
+                    count = await collector.collect_hotels_for_destination(
+                        destination=city,
+                        country=country,
+                        max_hotels=max_hotels_per_destination
+                    )
+                    results[f"{city}, {country}"] = count
+                    logger.info(f"✓ Collected {count} hotels for {city}, {country}")
+                except Exception as e:
+                    logger.error(f"✗ Error collecting hotels for {city}, {country}: {e}")
+                    results[f"{city}, {country}"] = 0
+                    continue
+                
+                # Delay between destinations
+                await asyncio.sleep(3)
+            
+            # Summary
             logger.info(f"\n{'='*60}")
-            logger.info(f"Collecting hotels for {city}, {country}")
+            logger.info("Data Collection Summary")
             logger.info(f"{'='*60}")
-            
-            try:
-                count = await collector.collect_hotels_for_destination(
-                    destination=city,
-                    country=country,
-                    max_hotels=max_hotels_per_destination
-                )
-                results[f"{city}, {country}"] = count
-                logger.info(f"✓ Collected {count} hotels for {city}, {country}")
-            except Exception as e:
-                logger.error(f"✗ Error collecting hotels for {city}, {country}: {e}")
-                results[f"{city}, {country}"] = 0
-                continue
-            
-            # Delay between destinations
-            await asyncio.sleep(3)
+            total_hotels = sum(results.values())
+            logger.info(f"Total hotels collected: {total_hotels}")
+            logger.info(f"\nPer destination:")
+            for dest, count in results.items():
+                logger.info(f"  {dest}: {count} hotels")
         
-        # Summary
-        logger.info(f"\n{'='*60}")
-        logger.info("Data Collection Summary")
-        logger.info(f"{'='*60}")
-        total_hotels = sum(results.values())
-        logger.info(f"Total hotels collected: {total_hotels}")
-        logger.info(f"\nPer destination:")
-        for dest, count in results.items():
-            logger.info(f"  {dest}: {count} hotels")
-        
-        # Verify in database
-        total_in_db = db.query(HotelModel).count()
-        logger.info(f"\nTotal hotels in database: {total_in_db}")
+            # Verify in database
+            total_in_db = db.query(HotelModel).count()
+            logger.info(f"\nTotal hotels in database: {total_in_db}")
+            
+            # Print scraper statistics
+            stats = collector.concurrent_scraper.get_stats()
+            logger.info(f"\n{'='*60}")
+            logger.info("Scraper Statistics")
+            logger.info(f"{'='*60}")
+            logger.info(f"Total tasks: {stats['total_tasks']}")
+            logger.info(f"Completed: {stats['completed_tasks']}")
+            logger.info(f"Failed: {stats['failed_tasks']}")
+            logger.info(f"Retried: {stats['retried_tasks']}")
+            logger.info(f"Success rate: {stats['success_rate']:.2%}")
+            logger.info(f"Average task time: {stats['avg_task_time']:.2f}s")
+            
+        finally:
+            # Stop concurrent scraper
+            await collector.stop()
+            logger.info("Concurrent scraper stopped")
         
     except Exception as e:
         logger.error(f"Error populating database: {e}")

@@ -80,18 +80,8 @@ const HotelsPage = () => {
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 via-teal-600 to-cyan-700 text-white py-16">
-        <div className="container mx-auto px-4">
-          <h1 className="text-4xl font-bold mb-4">All Hotels</h1>
-          <p className="text-blue-100 text-lg">
-            Browse our collection of {hotels.length} hotels worldwide
-          </p>
-        </div>
-      </div>
-
       {/* Search and Filters */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-10">
+      <div className="bg-white shadow-sm border-b sticky top-16 z-40">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search Bar */}

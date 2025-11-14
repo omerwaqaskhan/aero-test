@@ -129,7 +129,7 @@ export default function SearchPage() {
       <Navigation />
       
       {/* Search Form */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b sticky top-16 z-40">
         <div className="container mx-auto px-4 py-6">
           <SearchForm
             initialDestination={destination}
@@ -161,11 +161,8 @@ export default function SearchPage() {
             {/* Results Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {results.length} hotels found
-                </h2>
-                <p className="text-gray-600 mt-1">
-                  {destination} • {checkIn} to {checkOut}
+                <p className="text-gray-600">
+                  {results.length} hotels found for {destination} • {checkIn} to {checkOut}
                 </p>
               </div>
               

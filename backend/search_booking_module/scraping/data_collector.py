@@ -17,6 +17,16 @@ from .expedia_scraper import ExpediaScraper
 from .hotels_com_scraper import HotelsComScraper
 from .agoda_scraper import AgodaScraper
 from .geocoding import GeocodingService
+from .concurrent_scraper import ConcurrentScraper
+from .monitoring import get_monitor
+from .alerting import get_alert_manager, AlertSeverity
+from .config import (
+    SCRAPER_RATE_LIMIT,
+    SCRAPER_MAX_CONCURRENT,
+    SCRAPER_PROXIES,
+    SCRAPER_MAX_RETRIES,
+    SCRAPER_TIMEOUT
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +34,44 @@ logger = logging.getLogger(__name__)
 class HotelDataCollector:
     """Service for collecting and storing hotel data from web scrapers."""
     
-    def __init__(self, db_session: Session, use_enhanced_scraping: bool = True):
+    def __init__(
+        self,
+        db_session: Session,
+        use_enhanced_scraping: bool = True,
+        max_concurrent: Optional[int] = None,
+        rate_limit: Optional[float] = None,
+        proxies: Optional[List[str]] = None
+    ):
         """Initialize data collector with database session.
         
         Args:
             db_session: Database session
             use_enhanced_scraping: Whether to use enhanced scrapers with browser support
+            max_concurrent: Maximum concurrent scraping tasks (defaults to config)
+            rate_limit: Requests per second per scraper (defaults to config)
+            proxies: List of proxy URLs for scraping (defaults to config)
         """
         self.db_session = db_session
         self.use_enhanced_scraping = use_enhanced_scraping
+        self.max_concurrent = max_concurrent or SCRAPER_MAX_CONCURRENT
+        self.rate_limit = rate_limit or SCRAPER_RATE_LIMIT
+        self.proxies = proxies or SCRAPER_PROXIES
+        
+        # Initialize concurrent scraper for parallel processing
+        self.concurrent_scraper = ConcurrentScraper(
+            max_workers=self.max_concurrent,
+            queue_size=200,
+            timeout=300.0
+        )
+        
+        # Initialize proxy pool if proxies are configured
+        if self.proxies:
+            from .proxy_pool import ProxyPool
+            self.proxy_pool = ProxyPool(proxies=self.proxies)
+            logger.info(f"Initialized proxy pool with {len(self.proxies)} proxies")
+        else:
+            self.proxy_pool = None
+            logger.info("No proxies configured, using direct connections")
         
         # Use enhanced scrapers if available - multiple providers for better coverage
         if use_enhanced_scraping:
@@ -59,6 +98,28 @@ class HotelDataCollector:
             ]
         
         self.geocoding = GeocodingService()
+        
+        # Initialize monitoring and alerting
+        self.monitor = get_monitor()
+        self.alert_manager = get_alert_manager()
+    
+    async def start(self):
+        """Start the concurrent scraper and proxy pool health monitoring."""
+        await self.concurrent_scraper.start()
+        
+        # Start proxy pool health monitoring if configured
+        if self.proxy_pool:
+            asyncio.create_task(self.proxy_pool.start_health_monitoring())
+            logger.info("Proxy pool health monitoring started")
+    
+    async def stop(self):
+        """Stop the concurrent scraper and proxy pool health monitoring."""
+        await self.concurrent_scraper.stop()
+        
+        # Stop proxy pool health monitoring if configured
+        if self.proxy_pool:
+            await self.proxy_pool.stop_health_monitoring()
+            logger.info("Proxy pool health monitoring stopped")
     
     async def collect_hotels_for_destination(
         self,
@@ -79,27 +140,89 @@ class HotelDataCollector:
         collected_count = 0
         
         try:
-            # Collect from all scrapers
+            # Collect from all scrapers concurrently
             all_hotels = []
             
-            for scraper in self.scrapers:
+            # Create tasks for concurrent scraping
+            async def scrape_with_provider(scraper, dest):
+                """Scrape hotels from a single provider."""
+                scraper_name = scraper.__class__.__name__
+                start_time = asyncio.get_event_loop().time()
+                
                 try:
+                    self.monitor.record_metric(scraper_name, 'request')
+                    
                     async with scraper:
-                        hotels = await scraper.search_hotels(destination=destination)
+                        hotels = await scraper.search_hotels(destination=dest)
+                        
+                        response_time = asyncio.get_event_loop().time() - start_time
+                        
                         if hotels:
-                            all_hotels.extend(hotels)
-                            logger.info(f"✓ Collected {len(hotels)} hotels from {scraper.__class__.__name__} for {destination}")
+                            self.monitor.record_metric(
+                                scraper_name,
+                                'success',
+                                value=len(hotels),
+                                metadata={'response_time': response_time}
+                            )
+                            logger.info(f"✓ Collected {len(hotels)} hotels from {scraper_name} for {dest}")
                         else:
-                            logger.warning(f"⚠ No hotels found from {scraper.__class__.__name__} for {destination}")
+                            self.monitor.record_metric(
+                                scraper_name,
+                                'failure',
+                                metadata={'error_type': 'no_results', 'response_time': response_time}
+                            )
+                            logger.warning(f"⚠ No hotels found from {scraper_name} for {dest}")
+                        return hotels or []
                 except Exception as e:
-                    logger.warning(f"⚠ Error collecting from {scraper.__class__.__name__}: {e}")
-                    # Continue with other scrapers even if one fails
+                    response_time = asyncio.get_event_loop().time() - start_time
+                    error_type = type(e).__name__
+                    
+                    self.monitor.record_metric(
+                        scraper_name,
+                        'failure',
+                        metadata={'error_type': error_type, 'response_time': response_time, 'error': str(e)}
+                    )
+                    
+                    # Create alert for failures
+                    self.alert_manager.create_alert(
+                        severity=AlertSeverity.WARNING,
+                        title=f"Scraping failure: {scraper_name}",
+                        message=f"Error collecting from {scraper_name} for {dest}: {e}",
+                        source=scraper_name,
+                        metadata={'destination': dest, 'error_type': error_type}
+                    )
+                    
+                    logger.warning(f"⚠ Error collecting from {scraper_name}: {e}")
+                    return []
+            
+            # Submit all scraping tasks concurrently
+            tasks = []
+            for scraper in self.scrapers:
+                task_id = f"{scraper.__class__.__name__}_{destination}_{id(scraper)}"
+                await self.concurrent_scraper.submit(
+                    task_id=task_id,
+                    func=scrape_with_provider,
+                    args=(scraper, destination),
+                    priority=5  # Normal priority
+                )
+                tasks.append(task_id)
+            
+            # Wait for all tasks to complete
+            for task_id in tasks:
+                try:
+                    hotels = await self.concurrent_scraper.wait_for_task(task_id, timeout=180.0)
+                    if hotels:
+                        all_hotels.extend(hotels)
+                except Exception as e:
+                    logger.error(f"Task {task_id} failed: {e}")
                     continue
             
             # Deduplicate and merge hotels from multiple sources
             unique_hotels = self._deduplicate_and_merge_hotels(all_hotels)
             
-            for hotel_data in unique_hotels[:max_hotels]:
+            # Process hotels concurrently (detail fetching and saving)
+            async def process_hotel(hotel_data):
+                """Process a single hotel (fetch details and save)."""
                 try:
                     # If we have a source URL and enhanced scraping, get detailed information
                     if self.use_enhanced_scraping and hotel_data.get('source_url'):
@@ -161,31 +284,35 @@ class HotelDataCollector:
                                                         hotel_data['amenities'] = all_amenities
                                         except Exception as e:
                                             logger.warning(f"Error scraping hotel website: {e}")
-                                    
-                                    # Try to get amenities from TripAdvisor if hotel name is available
-                                    if hotel_data.get('name'):
-                                        try:
-                                            from .tripadvisor_scraper import TripAdvisorScraper
-                                            # Search TripAdvisor for the hotel
-                                            tripadvisor_scraper = TripAdvisorScraper(use_browser=False)
-                                            async with tripadvisor_scraper:
-                                                # Try to find hotel on TripAdvisor
-                                                # For now, we'll skip this as it requires hotel URL
-                                                # In future, we can implement TripAdvisor search
-                                                pass
-                                        except Exception as e:
-                                            logger.debug(f"Could not get TripAdvisor amenities: {e}")
-                                
-                                # Delay between detail page requests
-                                await asyncio.sleep(2)
                         except Exception as e:
                             logger.warning(f"Error fetching detailed information for {hotel_data.get('name')}: {e}. Using basic data.")
                     
                     saved = await self._save_hotel(hotel_data, destination, country)
+                    return saved
+                except Exception as e:
+                    logger.error(f"Error processing hotel {hotel_data.get('name')}: {e}")
+                    return False
+            
+            # Process hotels concurrently
+            hotel_tasks = []
+            for hotel_data in unique_hotels[:max_hotels]:
+                task_id = f"hotel_{hotel_data.get('name', 'unknown')}_{id(hotel_data)}"
+                await self.concurrent_scraper.submit(
+                    task_id=task_id,
+                    func=process_hotel,
+                    args=(hotel_data,),
+                    priority=10  # Higher priority for detail fetching
+                )
+                hotel_tasks.append(task_id)
+            
+            # Wait for all hotel processing tasks
+            for task_id in hotel_tasks:
+                try:
+                    saved = await self.concurrent_scraper.wait_for_task(task_id, timeout=300.0)
                     if saved:
                         collected_count += 1
                 except Exception as e:
-                    logger.error(f"Error saving hotel {hotel_data.get('name')}: {e}")
+                    logger.error(f"Hotel processing task {task_id} failed: {e}")
                     continue
             
             self.db_session.commit()
