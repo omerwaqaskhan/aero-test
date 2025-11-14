@@ -162,78 +162,88 @@ const HotelsPage = () => {
 
             {/* Hotels Grid */}
             {filteredHotels.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 {filteredHotels.map((hotel) => (
                   <div
                     key={hotel.id}
-                    className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
+                    className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer group"
                     onClick={() => navigate(`/hotels/${hotel.id}`)}
                   >
                     {/* Hotel Image */}
-                    <div className="relative h-48 bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 overflow-hidden">
+                    <div className="relative h-40 bg-gradient-to-br from-blue-100 to-purple-100 overflow-hidden">
                       {hotel.images && hotel.images.length > 0 ? (
                         <img
                           src={hotel.images[0]}
                           alt={hotel.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
                             e.target.style.display = 'none';
                           }}
                         />
-                      ) : null}
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-4xl text-gray-300 font-bold">
+                            {hotel.name?.charAt(0).toUpperCase() || 'H'}
+                          </span>
+                        </div>
+                      )}
                       
                       {/* Stars Badge */}
                       {hotel.stars > 0 && (
-                        <div className="absolute top-3 right-3 bg-white/90 px-3 py-1 rounded-full flex items-center gap-1">
-                          <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                          <span className="text-sm font-semibold text-gray-900">{hotel.stars}</span>
+                        <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-sm px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
+                          <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" />
+                          <span className="text-xs font-semibold text-gray-900">{hotel.stars}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Hotel Info */}
-                    <div className="p-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                        {hotel.name}
+                    <div className="p-3">
+                      {/* Hotel Name */}
+                      <h3 className="text-base font-semibold text-gray-900 mb-1.5 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                        {hotel.name?.replace('Opens in new window', '').trim() || 'Hotel'}
                       </h3>
                       
-                      <div className="flex items-center text-gray-600 mb-3">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        <span className="text-sm">
+                      {/* Location */}
+                      <div className="flex items-center text-gray-500 mb-2 text-xs">
+                        <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                        <span className="truncate">
                           {hotel.city}, {hotel.country}
                         </span>
                       </div>
 
-                      {/* Rating */}
-                      {hotel.rating && (
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="flex items-center">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-sm font-medium text-gray-900 ml-1">
+                      {/* Rating and Amenities Row */}
+                      <div className="flex items-center justify-between mb-2">
+                        {hotel.rating ? (
+                          <div className="flex items-center gap-1">
+                            <Star className="w-3.5 h-3.5 text-yellow-400 fill-current" />
+                            <span className="text-xs font-medium text-gray-900">
                               {hotel.rating.toFixed(1)}
                             </span>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Amenities */}
-                      {hotel.amenities && hotel.amenities.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {hotel.amenities.slice(0, 3).map((amenity, idx) => (
-                            <span
-                              key={idx}
-                              className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
-                            >
-                              {amenity}
-                            </span>
-                          ))}
-                          {hotel.amenities.length > 3 && (
-                            <span className="text-xs text-gray-500">
-                              +{hotel.amenities.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      )}
+                        ) : (
+                          <div></div>
+                        )}
+                        
+                        {/* Top Amenities */}
+                        {hotel.amenities && hotel.amenities.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            {hotel.amenities.slice(0, 2).map((amenity, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100"
+                              >
+                                {amenity.length > 8 ? amenity.substring(0, 8) + '...' : amenity}
+                              </span>
+                            ))}
+                            {hotel.amenities.length > 2 && (
+                              <span className="text-xs text-gray-400">
+                                +{hotel.amenities.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* View Details Button */}
                       <button
@@ -241,7 +251,7 @@ const HotelsPage = () => {
                           e.stopPropagation();
                           navigate(`/hotels/${hotel.id}`);
                         }}
-                        className="w-full bg-gradient-to-r from-blue-600 to-teal-600 text-white py-2 px-4 rounded-lg hover:from-blue-700 hover:to-teal-700 transition-all font-semibold"
+                        className="w-full bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                       >
                         View Details
                       </button>
