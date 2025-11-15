@@ -91,10 +91,24 @@ const HotelDetailsPage = () => {
     setShowLeadModal(false);
   };
 
+  const handleViewMoreRooms = () => {
+    setActiveTab('Rooms');
+    // Scroll to top of rooms section
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'Overview':
-        return <PropertyOverviewSection hotel={hotel} />;
+        return (
+          <PropertyOverviewSection 
+            hotel={hotel} 
+            rooms={rooms}
+            offers={offers}
+            onBook={handleBook}
+            onViewMoreRooms={handleViewMoreRooms}
+          />
+        );
       case 'Rooms':
         return <RoomListingSection rooms={rooms} offers={offers} onBook={handleBook} />;
       case 'Amenities':

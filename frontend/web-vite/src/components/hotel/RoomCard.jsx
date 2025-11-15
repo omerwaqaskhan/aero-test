@@ -42,24 +42,40 @@ const RoomCard = ({ room, offer, onBook }) => {
         
         {/* Room Information */}
         <div className="space-y-2 mb-3">
-          <div className="flex items-center space-x-2 text-sm text-gray-700">
-            <Square className="w-4 h-4 text-gray-900" />
-            <span>{room?.occupancy?.size || offer?.room_size || '18'} sqm</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-700">
-            <Users className="w-4 h-4 text-gray-900" />
-            <span>{room?.occupancy?.max_guests || offer?.guests || 2} people</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-700">
-            <Bed className="w-4 h-4 text-gray-900" />
-            <span>{room?.occupancy?.bed_type || offer?.bed_type || '1 queen bed or 2 separate beds'}</span>
-          </div>
+          {room?.occupancy?.size || offer?.room_size ? (
+            <div className="flex items-center space-x-2 text-sm text-gray-700">
+              <Square className="w-4 h-4 text-gray-900" />
+              <span>{room?.occupancy?.size || offer?.room_size} sqm</span>
+            </div>
+          ) : null}
+          {room?.occupancy?.max_guests || offer?.guests ? (
+            <div className="flex items-center space-x-2 text-sm text-gray-700">
+              <Users className="w-4 h-4 text-gray-900" />
+              <span>{room?.occupancy?.max_guests || offer?.guests} {room?.occupancy?.max_guests === 1 || offer?.guests === 1 ? 'person' : 'people'}</span>
+            </div>
+          ) : null}
+          {room?.occupancy?.bed_type || offer?.bed_type ? (
+            <div className="flex items-center space-x-2 text-sm text-gray-700">
+              <Bed className="w-4 h-4 text-gray-900" />
+              <span>{room?.occupancy?.bed_type || offer?.bed_type}</span>
+            </div>
+          ) : null}
         </div>
         
-        {/* Non-refundable and Breakfast info */}
-        <p className="text-xs text-gray-500 mb-4">
-          Non-refundable, Breakfast included
-        </p>
+        {/* Cancellation policy info */}
+        {offer?.cancellation_policy && (
+          <div className="mb-4">
+            {offer.cancellation_policy.free_cancellation ? (
+              <p className="text-xs text-green-600 font-medium">
+                ✓ Free cancellation
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Cancellation policy applies
+              </p>
+            )}
+          </div>
+        )}
         
         {/* Booking Button */}
         {offer && (
