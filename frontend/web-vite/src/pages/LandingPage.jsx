@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import Navigation from '../components/layout/navigation';
 import Footer from '../components/layout/footer';
 import HeroSection from '../components/ui/hero-section';
@@ -9,6 +11,7 @@ import TestimonialCard from '../components/ui/testimonial-card';
 import { Shield, Clock, Award } from 'lucide-react';
 
 const LandingPage = () => {
+  const navigate = useNavigate();
   const featuredDestinations = [
     { id: 1, name: 'Paris', country: 'France', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1600&auto=format&fit=crop', price: '€89', rating: 4.8, reviews: 2847, hotels: 1247, discount: 26, description: 'Romance, art, and culture at every corner.' },
     { id: 2, name: 'Tokyo', country: 'Japan', image: 'https://images.unsplash.com/photo-1549692520-acc6669e2f0c?q=80&w=1600&auto=format&fit=crop', price: '¥12,500', rating: 4.9, reviews: 1923, hotels: 892, discount: 17, description: 'Tradition meets innovation in Japan’s capital.' },
@@ -80,6 +83,17 @@ const LandingPage = () => {
             {featuredDestinations.map((destination) => (
               <DestinationCard key={destination.id} destination={destination} />
             ))}
+          </div>
+          
+          {/* View All Button */}
+          <div className="text-center mt-8">
+            <button 
+              onClick={() => navigate('/hotels')}
+              className="inline-flex items-center bg-gradient-to-r from-blue-600 to-teal-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all font-bold shadow-lg hover:shadow-xl"
+            >
+              View All Destinations
+              <ChevronRight className="ml-2 w-5 h-5" />
+            </button>
           </div>
         </div>
       </section>

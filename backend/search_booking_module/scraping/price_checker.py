@@ -195,18 +195,9 @@ class PriceChecker:
         ).all()
         
         if not rooms:
-            # Create default room if none exist
-            default_room = RoomModel(
-                hotel_id=hotel_id,
-                room_type_name="Standard Room",
-                description="Standard room",
-                images=hotel.images[:1] if hotel.images else [],
-                occupancy={'max_guests': 2},
-                amenities=['WiFi', 'TV']
-            )
-            self.db_session.add(default_room)
-            self.db_session.flush()
-            rooms = [default_room]
+            # No rooms available - can't create offers without real room data
+            logger.warning(f"No rooms found for hotel {hotel_id}, cannot create offers")
+            return 0
         
         # Update offers for each provider
         for provider_name, price_data in prices.items():

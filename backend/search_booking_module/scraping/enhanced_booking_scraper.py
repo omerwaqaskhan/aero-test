@@ -1753,35 +1753,58 @@ class EnhancedBookingScraper(BaseScraper):
             return []
     
     def _extract_reviews(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
-        """Extract hotel reviews."""
+        """Extract hotel reviews from Booking.com."""
         reviews = []
         try:
-            # Find reviews section
-            reviews_section = soup.find('div', {'data-testid': 'reviews'})
-            if not reviews_section:
-                reviews_section = soup.find('div', class_=re.compile(r'reviews|testimonials', re.I))
+            # Try multiple selectors for Booking.com reviews
+            # Booking.com uses various structures for reviews
+            review_elements = []
             
-            if reviews_section:
-                review_elements = reviews_section.find_all('div', class_=re.compile(r'review|testimonial|comment', re.I))
+            # Method 1: Look for review items with data-testid
+            review_elements = soup.find_all('div', {'data-testid': re.compile(r'review|comment', re.I)})
+            
+            # Method 2: Look for review items in reviews section
+            if not review_elements:
+                reviews_section = soup.find('div', {'data-testid': 'reviews'})
+                if reviews_section:
+                    review_elements = reviews_section.find_all('div', class_=re.compile(r'review|comment|item', re.I))
+            
+            # Method 3: Look for review cards
+            if not review_elements:
+                review_elements = soup.find_all('div', class_=re.compile(r'review.*card|comment.*card|review-item', re.I))
+            
+            # Method 4: Look for any div with review-related classes
+            if not review_elements:
+                review_elements = soup.find_all('div', class_=re.compile(r'review|testimonial|comment', re.I))
+                # Filter out parent containers
+                review_elements = [e for e in review_elements if e.find('div', class_=re.compile(r'text|content|comment', re.I))]
+            
+            logger.debug(f"Found {len(review_elements)} potential review elements")
+            
+            for review_elem in review_elements[:30]:  # Limit to 30 reviews
+                review_data = {
+                    'title': self._extract_review_title(review_elem),
+                    'text': self._extract_review_text(review_elem),
+                    'author': self._extract_review_author(review_elem),
+                    'rating': self._extract_review_rating(review_elem),
+                    'pros': self._extract_review_pros(review_elem),
+                    'cons': self._extract_review_cons(review_elem),
+                    'category_ratings': self._extract_review_category_ratings(review_elem),
+                }
                 
-                for review_elem in review_elements[:20]:  # Limit to 20 reviews
-                    review_data = {
-                        'title': self._extract_review_title(review_elem),
-                        'text': self._extract_review_text(review_elem),
-                        'author': self._extract_review_author(review_elem),
-                        'rating': self._extract_review_rating(review_elem),
-                        'pros': self._extract_review_pros(review_elem),
-                        'cons': self._extract_review_cons(review_elem),
-                        'category_ratings': self._extract_review_category_ratings(review_elem),
-                    }
-                    
-                    if review_data['text'] or review_data['title']:
-                        reviews.append(review_data)
+                # Only add if we have meaningful content
+                if review_data['text'] and len(review_data['text'].strip()) > 20:
+                    reviews.append(review_data)
+                elif review_data['title'] and len(review_data['title'].strip()) > 5:
+                    reviews.append(review_data)
             
+            logger.info(f"Extracted {len(reviews)} reviews")
             return reviews
             
         except Exception as e:
             logger.error(f"Error extracting reviews: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
             return []
     
     def _extract_review_title(self, review_elem) -> str:
@@ -1797,34 +1820,114 @@ class EnhancedBookingScraper(BaseScraper):
     def _extract_review_text(self, review_elem) -> str:
         """Extract review text."""
         try:
-            text_elem = review_elem.find('div', class_=re.compile(r'text|content|comment', re.I))
+            # Try multiple selectors for review text
+            text_elem = None
+            
+            # Method 1: data-testid="review-text" or similar
+            text_elem = review_elem.find('div', {'data-testid': re.compile(r'text|content|comment|review', re.I)})
+            
+            # Method 2: class with text/content/comment
+            if not text_elem:
+                text_elem = review_elem.find('div', class_=re.compile(r'review.*text|comment.*text|content|text.*review', re.I))
+            
+            # Method 3: paragraph or div with review content
+            if not text_elem:
+                text_elem = review_elem.find(['p', 'div'], class_=re.compile(r'text|content|comment|description', re.I))
+            
+            # Method 4: Any paragraph or div with substantial text
+            if not text_elem:
+                for elem in review_elem.find_all(['p', 'div']):
+                    text = elem.get_text(strip=True)
+                    if text and len(text) > 20:  # Substantial text
+                        text_elem = elem
+                        break
+            
             if text_elem:
-                return text_elem.get_text(separator='\n', strip=True)
+                text = text_elem.get_text(separator=' ', strip=True)
+                # Clean up text
+                text = re.sub(r'\s+', ' ', text)  # Normalize whitespace
+                return text
             return ""
-        except:
+        except Exception as e:
+            logger.debug(f"Error extracting review text: {e}")
             return ""
     
     def _extract_review_author(self, review_elem) -> str:
         """Extract review author."""
         try:
-            author_elem = review_elem.find(['span', 'div'], class_=re.compile(r'author|name|user', re.I))
+            # Try multiple methods to find author
+            author_elem = None
+            
+            # Method 1: data-testid="review-author" or similar
+            author_elem = review_elem.find(['span', 'div'], {'data-testid': re.compile(r'author|name|user', re.I)})
+            
+            # Method 2: class with author/name/user
+            if not author_elem:
+                author_elem = review_elem.find(['span', 'div', 'p'], class_=re.compile(r'author|name|user|reviewer', re.I))
+            
+            # Method 3: Look for name-like patterns
+            if not author_elem:
+                for elem in review_elem.find_all(['span', 'div']):
+                    text = elem.get_text(strip=True)
+                    # Check if it looks like a name (short, capitalized words)
+                    if text and len(text) < 50 and re.match(r'^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*', text):
+                        author_elem = elem
+                        break
+            
             if author_elem:
-                return author_elem.get_text(strip=True)
-            return ""
-        except:
-            return ""
+                author = author_elem.get_text(strip=True)
+                # Clean up author name
+                author = re.sub(r'\s+', ' ', author)
+                return author
+            return "Anonymous"
+        except Exception as e:
+            logger.debug(f"Error extracting review author: {e}")
+            return "Anonymous"
     
     def _extract_review_rating(self, review_elem) -> float:
         """Extract review rating."""
         try:
-            rating_elem = review_elem.find('div', class_=re.compile(r'rating|score', re.I))
+            # Try multiple methods to find rating
+            rating = None
+            
+            # Method 1: Look for rating in data attributes
+            rating_attr = review_elem.get('data-rating') or review_elem.get('data-score')
+            if rating_attr:
+                try:
+                    return float(rating_attr)
+                except:
+                    pass
+            
+            # Method 2: Look for rating element with class
+            rating_elem = review_elem.find(['div', 'span'], class_=re.compile(r'rating|score|badge', re.I))
             if rating_elem:
                 rating_text = rating_elem.get_text(strip=True)
+                # Look for number (could be 1-10 or 1-5 scale)
                 rating_match = re.search(r'(\d+\.?\d*)', rating_text)
                 if rating_match:
-                    return float(rating_match.group(1))
+                    rating = float(rating_match.group(1))
+                    # Normalize to 1-10 scale if it's 1-5
+                    if rating <= 5:
+                        rating = rating * 2
+                    return rating
+            
+            # Method 3: Look for star ratings
+            stars = review_elem.find_all(['span', 'div'], class_=re.compile(r'star|filled', re.I))
+            if stars:
+                return len(stars) * 2.0  # Convert stars to 1-10 scale
+            
+            # Method 4: Look for any number that could be a rating
+            all_text = review_elem.get_text()
+            rating_match = re.search(r'(\d+\.?\d*)\s*(?:out of|/|stars?)', all_text, re.I)
+            if rating_match:
+                rating = float(rating_match.group(1))
+                if rating <= 5:
+                    rating = rating * 2
+                return rating
+            
             return 0.0
-        except:
+        except Exception as e:
+            logger.debug(f"Error extracting review rating: {e}")
             return 0.0
     
     def _extract_review_pros(self, review_elem) -> List[str]:

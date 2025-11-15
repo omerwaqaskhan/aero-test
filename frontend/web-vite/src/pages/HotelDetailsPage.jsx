@@ -101,34 +101,59 @@ const HotelDetailsPage = () => {
         return (
           <div className="bg-white p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Amenities</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {hotel.amenities?.map((amenity, index) => (
-                <div key={index} className="flex items-center space-x-2 text-gray-700">
-                  <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                  <span>{amenity}</span>
-                </div>
-              ))}
-            </div>
+            {hotel.amenities && hotel.amenities.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {hotel.amenities.map((amenity, index) => (
+                  <div key={index} className="flex items-center space-x-2 text-gray-700">
+                    <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                    <span>{amenity}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">Not Available</p>
+            )}
           </div>
         );
       case 'Policies':
         return (
           <div className="bg-white p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Policies</h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Check-in</h3>
-                <p className="text-gray-700">From 3:00 PM</p>
+            {hotel.policies && Object.keys(hotel.policies).length > 0 ? (
+              <div className="space-y-4">
+                {hotel.policies.check_in && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Check-in</h3>
+                    <p className="text-gray-700">{hotel.policies.check_in}</p>
+                  </div>
+                )}
+                {hotel.policies.check_out && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Check-out</h3>
+                    <p className="text-gray-700">{hotel.policies.check_out}</p>
+                  </div>
+                )}
+                {hotel.policies.cancellation && (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Cancellation</h3>
+                    <p className="text-gray-700">{hotel.policies.cancellation}</p>
+                  </div>
+                )}
+                {Object.entries(hotel.policies).map(([key, value]) => {
+                  if (!['check_in', 'check_out', 'cancellation'].includes(key)) {
+                    return (
+                      <div key={key}>
+                        <h3 className="font-semibold text-gray-900 mb-2 capitalize">{key.replace('_', ' ')}</h3>
+                        <p className="text-gray-700">{typeof value === 'string' ? value : JSON.stringify(value)}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
               </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Check-out</h3>
-                <p className="text-gray-700">Until 11:00 AM</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Cancellation</h3>
-                <p className="text-gray-700">Free cancellation available for most bookings</p>
-              </div>
-            </div>
+            ) : (
+              <p className="text-gray-500 italic">Not Available</p>
+            )}
           </div>
         );
       default:

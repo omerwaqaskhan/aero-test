@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import FavoriteButton from '../user/FavoriteButton';
 
 const HotelImageGallery = ({ hotel }) => {
   const navigate = useNavigate();

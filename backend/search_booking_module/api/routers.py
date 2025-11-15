@@ -128,9 +128,16 @@ async def search_hotels(
                 updated_at=result.hotel.updated_at
             )
             
-            # Convert offers
+            # Convert offers with room information
             offers_response = []
             for offer in result.offers:
+                # Get room details if room_id exists
+                room_type = None
+                if offer.room_id:
+                    room = db.query(RoomModel).filter(RoomModel.id == offer.room_id).first()
+                    if room:
+                        room_type = room.room_type_name
+                
                 offer_response = OfferResponse(
                     id=offer.id,
                     hotel_id=offer.hotel_id,
@@ -146,7 +153,8 @@ async def search_hotels(
                     cancellation_policy=offer.cancellation_policy,
                     total_nights=offer.get_total_nights(),
                     total_price=offer.get_total_price(),
-                    expires_at=offer.expires_at
+                    expires_at=offer.expires_at,
+                    room_type=room_type
                 )
                 offers_response.append(offer_response)
             

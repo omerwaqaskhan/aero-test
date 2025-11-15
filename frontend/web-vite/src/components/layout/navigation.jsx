@@ -36,42 +36,30 @@ const Navigation = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-8">
-              <a 
-                href="/" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                Home
-              </a>
-              <a 
-                href="/hotels"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/hotels');
-                }}
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                Hotels
-              </a>
-              <a 
-                href="#news" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                News
-              </a>
-              <a 
-                href="#contacts" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
-              >
-                Contacts
-              </a>
-            </div>
-          </div>
-
-          {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
+          <div className="hidden md:flex items-center space-x-6">
+            <a 
+              href="/" 
+              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+            >
+              Home
+            </a>
+            <a 
+              href="/hotels"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/hotels');
+              }}
+              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+            >
+              Hotels
+            </a>
+            <a 
+              href="#news" 
+              className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
+            >
+              News
+            </a>
+            {isAuthenticated && (
               <>
                 <a
                   href="/favorites"
@@ -103,13 +91,16 @@ const Navigation = () => {
                 >
                   Saved Searches
                 </a>
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                    {user?.first_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-gray-700 text-sm font-medium">
-                    {user?.first_name || user?.email?.split('@')[0]}
-                  </span>
+              </>
+            )}
+          </div>
+
+          {/* Desktop Auth Buttons */}
+          <div className="hidden md:flex items-center space-x-4">
+            {isAuthenticated ? (
+              <>
+                <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                  {user?.first_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
                 </div>
                 {(user?.role === 'super_admin' || user?.role === 'tenant_admin' || user?.user_role === 'super_admin' || user?.user_role === 'tenant_admin') && (
                   <>
@@ -121,7 +112,7 @@ const Navigation = () => {
                       }}
                       className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
                     >
-                      Admin
+                      Admin Portal
                     </a>
                     <a
                       href="/monitoring"
@@ -201,24 +192,40 @@ const Navigation = () => {
             >
               News
             </a>
-            <a
-              href="#contacts"
-              className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Contacts
-            </a>
             <div className="border-t border-gray-200 pt-4 mt-4">
               {isAuthenticated ? (
                 <>
-                  <div className="flex items-center space-x-3 px-3 py-2 mb-3">
+                  <div className="flex items-center justify-center px-3 py-2 mb-3">
                     <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                       {user?.first_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-gray-700 text-sm font-medium">
-                      {user?.first_name || user?.email?.split('@')[0]}
-                    </span>
                   </div>
+                  {(user?.role === 'super_admin' || user?.role === 'tenant_admin' || user?.user_role === 'super_admin' || user?.user_role === 'tenant_admin') && (
+                    <>
+                      <a
+                        href="/admin"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate('/admin');
+                          setIsMenuOpen(false);
+                        }}
+                        className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                      >
+                        Admin Portal
+                      </a>
+                      <a
+                        href="/monitoring"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate('/monitoring');
+                          setIsMenuOpen(false);
+                        }}
+                        className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"
+                      >
+                        Monitoring
+                      </a>
+                    </>
+                  )}
                   <button
                     onClick={() => {
                       handleLogout();

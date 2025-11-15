@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import date, datetime
 from decimal import Decimal
+import json
+import uuid as uuid_lib
 
 from auth_module.infrastructure.db.database import get_db
 from typing import Optional as Opt
@@ -116,21 +118,42 @@ async def create_favorite(
     if existing:
         raise HTTPException(status_code=400, detail="Hotel already in favorites")
     
-    # Create favorite
-    favorite = FavoriteModel(
-        user_id=str(current_user.id),
-        hotel_id=request.hotel_id
-    )
-    db.add(favorite)
-    db.commit()
-    db.refresh(favorite)
+    # Create favorite using raw SQL to avoid FK resolution issues
+    from sqlalchemy import text
+    import uuid as uuid_lib
+    favorite_id = str(uuid_lib.uuid4())
     
-    return FavoriteResponse(
-        id=favorite.id,
-        user_id=favorite.user_id,
-        hotel_id=favorite.hotel_id,
-        created_at=favorite.created_at
-    )
+    try:
+        db.execute(text("""
+            INSERT INTO favorites (id, user_id, hotel_id, created_at)
+            VALUES (:id, :user_id, :hotel_id, NOW())
+        """), {
+            "id": favorite_id,
+            "user_id": str(current_user.id),
+            "hotel_id": request.hotel_id
+        })
+        db.commit()
+        
+        # Fetch the created favorite
+        result = db.execute(text("""
+            SELECT id, user_id, hotel_id, created_at
+            FROM favorites
+            WHERE id = :id
+        """), {"id": favorite_id})
+        row = result.fetchone()
+        
+        return FavoriteResponse(
+            id=row[0],
+            user_id=row[1],
+            hotel_id=row[2],
+            created_at=row[3]
+        )
+    except Exception as e:
+        db.rollback()
+        # If it's a unique constraint violation, hotel is already favorited
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Hotel already in favorites")
+        raise
 
 
 @router.delete("/favorites/{hotel_id}")
@@ -209,7 +232,7 @@ async def create_booking(
     
     # Get offer if specified
     offer = None
-    if request.offer_id:
+    if getattr(request, 'offer_id', None):
         offer = db.query(OfferModel).filter(OfferModel.id == request.offer_id).first()
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")
@@ -220,60 +243,131 @@ async def create_booking(
     
     # Generate booking reference
     booking_reference = f"BK{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{str(current_user.id)[:8] if current_user else 'GUEST'}"
+    booking_id = str(uuid_lib.uuid4())
     
-    # Create booking
-    booking = BookingModel(
-        user_id=str(current_user.id) if current_user else None,
-        hotel_id=request.hotel_id,
-        offer_id=request.offer_id,
-        booking_reference=booking_reference,
-        check_in=request.check_in,
-        check_out=request.check_out,
-        guests=request.guests,
-        rooms=request.rooms,
-        guest_name=request.guest_name,
-        guest_email=request.guest_email,
-        guest_phone=request.guest_phone,
-        total_price=Decimal(str(total_price)),
-        currency=offer.currency if offer else "USD",
-        taxes_included=offer.taxes_included if offer else False,
-        status=BookingStatus.PENDING,
-        provider=offer.provider.value if offer else None,
-        affiliate_link=request.affiliate_link,
-        special_requests=request.special_requests,
-        cancellation_policy=offer.cancellation_policy if offer else {}
-    )
-    
-    db.add(booking)
-    db.commit()
-    db.refresh(booking)
+    # Create booking using raw SQL to avoid FK resolution issues
+    from sqlalchemy import text
+    try:
+        db.execute(text("""
+            INSERT INTO bookings (
+                id, user_id, hotel_id, offer_id, booking_reference,
+                check_in, check_out, guests, rooms,
+                guest_name, guest_email, guest_phone,
+                total_price, currency, taxes_included, status,
+                provider, provider_booking_id, affiliate_link,
+                special_requests, cancellation_policy, booking_metadata,
+                booked_at, created_at, updated_at
+            )
+            VALUES (
+                :id, :user_id, :hotel_id, :offer_id, :booking_reference,
+                :check_in, :check_out, :guests, :rooms,
+                :guest_name, :guest_email, :guest_phone,
+                :total_price, :currency, :taxes_included, :status,
+                :provider, :provider_booking_id, :affiliate_link,
+                :special_requests, :cancellation_policy, :booking_metadata,
+                NOW(), NOW(), NOW()
+            )
+        """), {
+            "id": booking_id,
+            "user_id": str(current_user.id) if current_user else None,
+            "hotel_id": request.hotel_id,
+            "offer_id": request.offer_id,
+            "booking_reference": booking_reference,
+            "check_in": request.check_in,
+            "check_out": request.check_out,
+            "guests": request.guests,
+            "rooms": request.rooms,
+            "guest_name": request.guest_name,
+            "guest_email": request.guest_email,
+            "guest_phone": request.guest_phone,
+            "total_price": str(total_price),
+            "currency": getattr(offer, 'currency', 'USD') if offer else "USD",
+            "taxes_included": getattr(offer, 'taxes_included', False) if offer else False,
+            "status": BookingStatus.PENDING.value,
+            "provider": offer.provider.value if offer and hasattr(offer, 'provider') and offer.provider else None,
+            "provider_booking_id": getattr(request, 'provider_booking_id', None),
+            "affiliate_link": getattr(request, 'affiliate_link', None),
+            "special_requests": getattr(request, 'special_requests', None),
+            "cancellation_policy": json.dumps(getattr(offer, 'cancellation_policy', {}) if offer else {}),
+            "booking_metadata": json.dumps(getattr(request, 'booking_metadata', None) or {})
+        })
+        db.commit()
+        
+        # Fetch the created booking
+        result = db.execute(text("""
+            SELECT id, user_id, hotel_id, offer_id, booking_reference,
+                   check_in, check_out, guests, rooms,
+                   guest_name, guest_email, guest_phone,
+                   total_price, currency, taxes_included, status,
+                   provider, provider_booking_id, affiliate_link,
+                   special_requests, cancellation_policy, booking_metadata,
+                   booked_at, confirmed_at, cancelled_at, created_at, updated_at
+            FROM bookings
+            WHERE id = :id
+        """), {"id": booking_id})
+        row = result.fetchone()
+        
+        booking = {
+            "id": row[0],
+            "user_id": row[1],
+            "hotel_id": row[2],
+            "offer_id": row[3],
+            "booking_reference": row[4],
+            "check_in": row[5],
+            "check_out": row[6],
+            "guests": row[7],
+            "rooms": row[8],
+            "guest_name": row[9],
+            "guest_email": row[10],
+            "guest_phone": row[11],
+            "total_price": float(row[12]),
+            "currency": row[13],
+            "taxes_included": row[14],
+            "status": row[15],
+            "provider": row[16],
+            "provider_booking_id": row[17],
+            "affiliate_link": row[18],
+            "special_requests": row[19],
+            "cancellation_policy": json.loads(row[20]) if row[20] else {},
+            "booking_metadata": json.loads(row[21]) if row[21] else {},
+            "booked_at": row[22],
+            "confirmed_at": row[23],
+            "cancelled_at": row[24],
+            "created_at": row[25],
+            "updated_at": row[26]
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create booking: {str(e)}")
     
     return BookingResponse(
-        id=booking.id,
-        user_id=booking.user_id,
-        hotel_id=booking.hotel_id,
-        offer_id=booking.offer_id,
-        booking_reference=booking.booking_reference,
-        check_in=booking.check_in,
-        check_out=booking.check_out,
-        guests=booking.guests,
-        rooms=booking.rooms,
-        guest_name=booking.guest_name,
-        guest_email=booking.guest_email,
-        guest_phone=booking.guest_phone,
-        total_price=booking.total_price,
-        currency=booking.currency,
-        taxes_included=booking.taxes_included,
-        status=booking.status.value,
-        provider=booking.provider,
-        provider_booking_id=booking.provider_booking_id,
-        booked_at=booking.booked_at,
-        confirmed_at=booking.confirmed_at,
-        cancelled_at=booking.cancelled_at,
-        special_requests=booking.special_requests,
-        cancellation_policy=booking.cancellation_policy,
-        created_at=booking.created_at,
-        updated_at=booking.updated_at
+        id=booking["id"],
+        user_id=booking["user_id"],
+        hotel_id=booking["hotel_id"],
+        offer_id=booking["offer_id"],
+        booking_reference=booking["booking_reference"],
+        check_in=booking["check_in"],
+        check_out=booking["check_out"],
+        guests=booking["guests"],
+        rooms=booking["rooms"],
+        guest_name=booking["guest_name"],
+        guest_email=booking["guest_email"],
+        guest_phone=booking["guest_phone"],
+        total_price=Decimal(str(booking["total_price"])),
+        currency=booking["currency"],
+        taxes_included=booking["taxes_included"],
+        status=booking["status"],
+        provider=booking["provider"],
+        provider_booking_id=booking["provider_booking_id"],
+        affiliate_link=booking["affiliate_link"],
+        special_requests=booking["special_requests"],
+        cancellation_policy=booking["cancellation_policy"],
+        booking_metadata=booking["booking_metadata"],
+        booked_at=booking["booked_at"],
+        confirmed_at=booking["confirmed_at"],
+        cancelled_at=booking["cancelled_at"],
+        created_at=booking["created_at"],
+        updated_at=booking["updated_at"]
     )
 
 
@@ -521,14 +615,19 @@ async def create_saved_search(
     current_user: UserModel = Depends(get_current_user)
 ):
     """Save a search."""
+    # Store search parameters in search_query JSONB
+    search_query = {
+        'destination': request.destination,
+        'check_in': request.check_in.isoformat() if request.check_in else None,
+        'check_out': request.check_out.isoformat() if request.check_out else None,
+        'guests': request.guests,
+        'rooms': request.rooms,
+        'filters': request.filters
+    }
+    
     saved_search = SavedSearchModel(
         user_id=str(current_user.id),
-        destination=request.destination,
-        check_in=request.check_in,
-        check_out=request.check_out,
-        guests=request.guests,
-        rooms=request.rooms,
-        filters=request.filters,
+        search_query=search_query,
         name=request.name,
         notification_enabled=request.notification_enabled
     )

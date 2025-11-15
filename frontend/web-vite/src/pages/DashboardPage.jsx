@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Calendar, Users, Star, ArrowRight, Shield, Clock, Award, Heart, ChevronRight, User as UserIcon } from 'lucide-react';
 import Navigation from '../components/layout/navigation';
 import Footer from '../components/layout/footer';
@@ -12,6 +13,7 @@ import { useAuth } from '../contexts/auth-context';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchData, setSearchData] = useState({
     destination: '',
     checkIn: '',
@@ -227,7 +229,10 @@ export default function DashboardPage() {
           
           {/* View All Button */}
           <div className="text-center mt-8">
-            <button className="inline-flex items-center bg-gradient-to-r from-blue-600 to-teal-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all font-bold shadow-lg hover:shadow-xl">
+            <button 
+              onClick={() => navigate('/hotels')}
+              className="inline-flex items-center bg-gradient-to-r from-blue-600 to-teal-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all font-bold shadow-lg hover:shadow-xl"
+            >
               View All Destinations
               <ChevronRight className="ml-2 w-5 h-5" />
             </button>

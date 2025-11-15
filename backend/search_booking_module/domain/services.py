@@ -127,7 +127,7 @@ class SearchService:
             # Get offers for these hotels
             hotel_ids = [hotel.id for hotel in hotels]
             
-            # Build offer query
+            # Build offer query - try to find matching offers first
             offer_query = self.db_session.query(OfferModel).filter(
                 OfferModel.hotel_id.in_(hotel_ids)
             )
@@ -155,6 +155,26 @@ class SearchService:
                 if offer.hotel_id not in offers_by_hotel:
                     offers_by_hotel[offer.hotel_id] = []
                 offers_by_hotel[offer.hotel_id].append(offer)
+            
+            # Only use offers that match the search dates (or are very close - within 7 days)
+            # This ensures we show accurate prices for the requested dates
+            if filters.check_in and filters.check_out:
+                # Get offers that are close to the requested dates (within 7 days)
+                from datetime import timedelta
+                date_tolerance = timedelta(days=7)
+                
+                close_offers = self.db_session.query(OfferModel).filter(
+                    OfferModel.hotel_id.in_(hotel_ids),
+                    OfferModel.check_in >= filters.check_in - date_tolerance,
+                    OfferModel.check_in <= filters.check_in + date_tolerance
+                ).all()
+                
+                # Add close offers if no exact matches found
+                for offer in close_offers:
+                    if offer.hotel_id not in offers_by_hotel:
+                        offers_by_hotel[offer.hotel_id] = []
+                    if offer not in offers_by_hotel[offer.hotel_id]:
+                        offers_by_hotel[offer.hotel_id].append(offer)
             
             # Get sponsored placements for priority sorting
             sponsored_map = {}
@@ -194,31 +214,60 @@ class SearchService:
                 # If revenue module not available, continue without sponsored placements
                 print(f"Could not load sponsored placements: {e}")
             
-            # Build search results
+            # Build search results - show all hotels that match destination/filters
+            # Hotels will be shown even without offers for exact dates
             results = []
             for hotel in hotels:
                 hotel_offers = offers_by_hotel.get(hotel.id, [])
                 
-                # Skip if no offers match filters
-                if not hotel_offers and (filters.min_price or filters.max_price):
-                    continue
+                # Filter offers by price if price filters are set
+                filtered_offers = hotel_offers
+                if filters.min_price or filters.max_price:
+                    filtered_offers = [
+                        o for o in hotel_offers
+                        if (not filters.min_price or o.price >= filters.min_price) and
+                           (not filters.max_price or o.price <= filters.max_price)
+                    ]
+                    # If price filter is set and no offers match, skip this hotel
+                    if not filtered_offers:
+                        continue
+                
+                # Use filtered offers for this hotel
+                hotel_offers = filtered_offers
                 
                 # Convert to domain models
                 hotel_domain = self._hotel_model_to_domain(hotel)
                 offers_domain = [self._offer_model_to_domain(offer) for offer in hotel_offers]
                 
-                # Calculate best price
+                # Calculate best price from offers that match date range (if any)
+                # Otherwise use any available offer price
                 best_price = None
                 best_offer = None
                 if offers_domain:
-                    best_offer = min(offers_domain, key=lambda o: o.price)
-                    best_price = best_offer.price
+                    # Filter offers by date range if specified
+                    date_matched_offers = offers_domain
+                    if filters.check_in and filters.check_out:
+                        date_matched_offers = [
+                            o for o in offers_domain
+                            if o.check_in <= filters.check_in and o.check_out >= filters.check_out
+                        ]
+                    
+                    # Use date-matched offers if available, otherwise use any offers
+                    price_offers = date_matched_offers if date_matched_offers else offers_domain
+                    if price_offers:
+                        best_offer = min(price_offers, key=lambda o: o.price)
+                        best_price = best_offer.price
                 
                 # Get average rating
                 average_rating = hotel.rating
-                review_count = self.db_session.query(ReviewModel).filter(
-                    ReviewModel.hotel_id == hotel.id
-                ).count()
+                # Get review count - handle case where reviews table doesn't exist
+                try:
+                    review_count = self.db_session.query(ReviewModel).filter(
+                        ReviewModel.hotel_id == hotel.id
+                    ).count()
+                except Exception:
+                    # Reviews table might not exist, use 0 as default
+                    review_count = 0
                 
                 # Apply rating filter
                 if filters.rating_min and average_rating:

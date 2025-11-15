@@ -429,10 +429,13 @@ class HotelDataCollector:
             ).first()
             
             if existing:
-                # Update existing hotel with enhanced data
-                existing.address = hotel_data.get('address') or existing.address
-                existing.description = hotel_data.get('description') or existing.description
-                existing.property_overview = hotel_data.get('property_overview') or existing.property_overview
+                # Update existing hotel with enhanced data (only if real data exists)
+                if hotel_data.get('address'):
+                    existing.address = hotel_data.get('address')
+                if hotel_data.get('description'):
+                    existing.description = hotel_data.get('description')
+                if hotel_data.get('property_overview'):
+                    existing.property_overview = hotel_data.get('property_overview')
                 
                 # Update images - merge new images with existing
                 new_images = hotel_data.get('images', [])
@@ -481,14 +484,11 @@ class HotelDataCollector:
                     await self._save_real_rooms(existing, valid_rooms)
                     logger.info(f"Updated {existing.name} with {len(valid_rooms)} real rooms")
                 else:
-                    # If no valid rooms found, check if hotel has any rooms
+                    # If no valid rooms found, keep existing rooms or leave empty (no dummy rooms)
                     existing_room_count = self.db_session.query(RoomModel).filter(RoomModel.hotel_id == existing.id).count()
                     if existing_room_count == 0:
-                        # Only create default rooms if hotel has NO rooms at all
-                        logger.warning(f"No valid rooms found for {existing.name}, creating default rooms")
-                        await self._create_default_rooms(existing)
+                        logger.info(f"No valid rooms found for {existing.name}, hotel will have no rooms (real data only)")
                     else:
-                        # Keep existing rooms
                         logger.info(f"No new valid rooms found for {existing.name}, keeping {existing_room_count} existing rooms")
                 
                 reviews_data = hotel_data.get('reviews_data', [])
@@ -526,9 +526,9 @@ class HotelDataCollector:
                     if coords:
                         latitude, longitude = coords
                     else:
-                        # Last resort: use placeholder coordinates
-                        latitude = 40.7128  # Default to NYC
-                        longitude = -74.0060
+                        # No coordinates available - skip this hotel (we need real location data)
+                        logger.warning(f"Could not geocode location for {hotel_data.get('name')} in {destination}, skipping hotel")
+                        return False
             
             # Get images - prefer scraped images, fallback to single image_url
             images = hotel_data.get('images', [])
@@ -574,7 +574,7 @@ class HotelDataCollector:
                 latitude=latitude,
                 longitude=longitude,
                 stars=hotel_data.get('stars', 3),
-                description=hotel_data.get('description') or f"Hotel in {destination}",
+                description=hotel_data.get('description') or None,  # No dummy description
                 property_overview=hotel_data.get('property_overview', ''),
                 images=images,
                 amenities=hotel_data.get('amenities', []),
@@ -613,19 +613,16 @@ class HotelDataCollector:
                     await self._save_real_rooms(new_hotel, valid_rooms)
                     logger.info(f"Created {new_hotel.name} with {len(valid_rooms)} real rooms")
                 else:
-                    # If no valid rooms found, create default rooms
-                    logger.warning(f"No valid rooms found for {new_hotel.name}, creating default rooms")
-                    await self._create_default_rooms(new_hotel)
-            else:
-                # No rooms data at all, create default rooms
-                await self._create_default_rooms(new_hotel)
+                    # If no valid rooms found, hotel will have no rooms (real data only)
+                    logger.info(f"No valid rooms found for {new_hotel.name}, hotel will have no rooms (real data only)")
+            # If no rooms data at all, hotel will have no rooms (real data only)
             
-            # Use real review data if available, otherwise create defaults
+            # Use real review data only - no dummy reviews
             reviews_data = hotel_data.get('reviews_data', [])
             if reviews_data:
                 await self._save_real_reviews(new_hotel, reviews_data)
-            else:
-                await self._create_default_reviews(new_hotel, hotel_data.get('rating', 9.0))
+                logger.info(f"Saved {len(reviews_data)} real reviews for {new_hotel.name}")
+            # If no reviews found, hotel will have no reviews (which is fine - only show real data)
             
             return True
             

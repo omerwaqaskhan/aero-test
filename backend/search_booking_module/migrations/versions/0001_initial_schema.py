@@ -120,8 +120,12 @@ def upgrade() -> None:
         sa.Column('hotel_id', postgresql.UUID(as_uuid=False), nullable=False),
         sa.Column('provider', sa.Enum('booking_com', 'expedia', 'direct', 'agoda', name='provider'), nullable=False),
         sa.Column('rating', sa.Float(), nullable=False),
+        sa.Column('title', sa.String(length=500), nullable=True),
         sa.Column('text', sa.Text(), nullable=True),
         sa.Column('author', sa.String(length=255), nullable=True),
+        sa.Column('pros', postgresql.JSON(astext_type=sa.Text()), nullable=False, server_default='[]'),
+        sa.Column('cons', postgresql.JSON(astext_type=sa.Text()), nullable=False, server_default='[]'),
+        sa.Column('category_ratings', postgresql.JSON(astext_type=sa.Text()), nullable=False, server_default='{}'),
         sa.Column('fetched_at', sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(['hotel_id'], ['hotels.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')

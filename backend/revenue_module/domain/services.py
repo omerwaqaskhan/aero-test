@@ -747,7 +747,7 @@ class AdRevenueService:
         reference_id: Optional[str],
         amount: Decimal,
         status: str,
-        metadata: Optional[Dict] = None
+        transaction_metadata: Optional[Dict] = None
     ):
         """Record revenue transaction."""
         transaction = RevenueTransactionModel(
@@ -756,7 +756,7 @@ class AdRevenueService:
             amount=amount,
             currency="USD",
             status=status,
-            transaction_metadata=metadata or {}
+            transaction_metadata=transaction_metadata or {}
         )
         self.db.add(transaction)
         self.db.commit()

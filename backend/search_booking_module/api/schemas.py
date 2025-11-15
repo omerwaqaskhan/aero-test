@@ -146,6 +146,7 @@ class OfferResponse(BaseModel):
     total_nights: int
     total_price: float
     expires_at: Optional[datetime] = None
+    room_type: Optional[str] = None  # Room type name for display
     
     class Config:
         from_attributes = True

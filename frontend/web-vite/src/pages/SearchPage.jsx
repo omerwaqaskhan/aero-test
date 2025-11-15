@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navigation from '../components/layout/navigation';
 import Footer from '../components/layout/footer';
-import SearchForm from '../components/ui/search-form';
-import DestinationCard from '../components/ui/destination-card';
+// Removed SearchForm import - using compact inline form instead
 import { apiClient } from '../lib/api-client';
 import { useAuth } from '../contexts/auth-context';
 import { Bookmark } from 'lucide-react';
-import { Search, Map, List, Filter, X, MapPin } from 'lucide-react';
+import { Search, Map, List, Filter, X, MapPin, Calendar, Users } from 'lucide-react';
 import AdSlot from '../components/revenue/AdSlot';
 
 export default function SearchPage() {
@@ -167,16 +166,94 @@ export default function SearchPage() {
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       
-      {/* Search Form */}
+      {/* Compact Search Bar */}
       <div className="bg-white shadow-sm border-b sticky top-16 z-40">
-        <div className="container mx-auto px-4 py-6">
-          <SearchForm
-            initialDestination={destination}
-            initialCheckIn={checkIn}
-            initialCheckOut={checkOut}
-            initialGuests={guests}
-            initialRooms={rooms}
-          />
+        <div className="container mx-auto px-4 py-3">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              const params = new URLSearchParams({
+                destination: e.target.destination.value,
+                check_in: e.target.check_in.value,
+                check_out: e.target.check_out.value,
+                guests: e.target.guests.value || '1',
+                rooms: e.target.rooms.value || '1'
+              });
+              window.location.href = `/search?${params.toString()}`;
+            }}
+            className="flex items-center gap-2 flex-wrap"
+          >
+            {/* Destination */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
+                <input
+                  type="text"
+                  name="destination"
+                  placeholder="Destination"
+                  defaultValue={destination}
+                  className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left"
+                />
+              </div>
+            </div>
+
+            {/* Check-in */}
+            <div className="min-w-[140px]">
+              <input
+                type="date"
+                name="check_in"
+                defaultValue={checkIn}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left"
+              />
+            </div>
+
+            {/* Check-out */}
+            <div className="min-w-[140px]">
+              <input
+                type="date"
+                name="check_out"
+                defaultValue={checkOut}
+                min={checkIn || new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-left"
+              />
+            </div>
+
+            {/* Guests */}
+            <div className="min-w-[100px]">
+              <input
+                type="number"
+                name="guests"
+                min="1"
+                max="10"
+                defaultValue={guests}
+                placeholder="Guests"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+              />
+            </div>
+
+            {/* Rooms */}
+            <div className="min-w-[100px]">
+              <input
+                type="number"
+                name="rooms"
+                min="1"
+                max="5"
+                defaultValue={rooms}
+                placeholder="Rooms"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+              />
+            </div>
+
+            {/* Search Button */}
+            <button
+              type="submit"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center gap-2 whitespace-nowrap"
+            >
+              <Search className="w-4 h-4" />
+              <span>Search</span>
+            </button>
+          </form>
         </div>
       </div>
 
@@ -451,32 +528,81 @@ export default function SearchPage() {
                             )}
                           </div>
 
-                          {/* Offers */}
+                          {/* Offers with Details */}
                           {result.offers && result.offers.length > 0 && (
                             <div className="mt-4 pt-4 border-t border-gray-200">
-                              <div className="flex flex-wrap gap-2">
-                                {result.offers.slice(0, 3).map((offer) => (
-                                  <button
-                                    key={offer.id}
-                                    onClick={async () => {
-                                      try {
-                                        const response = await apiClient.post('/v1/search-booking/bookings/click', {
-                                          offer_id: offer.id,
-                                          provider: offer.provider,
-                                          affiliate_link: `https://example.com/book/${offer.id}`
-                                        });
-                                        // In production, redirect to affiliate link
-                                        window.open(`https://example.com/book/${offer.id}`, '_blank');
-                                      } catch (err) {
-                                        console.error('Click tracking error:', err);
-                                      }
-                                    }}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                  >
-                                    Book ${offer.price.toFixed(2)}/night
-                                  </button>
-                                ))}
+                              <div className="mb-2 text-sm font-semibold text-gray-700">
+                                Available Offers ({result.offers.length})
                               </div>
+                              <div className="space-y-2">
+                                {result.offers.slice(0, 3).map((offer) => {
+                                  // Check if offer dates match search dates
+                                  const offerCheckIn = new Date(offer.check_in);
+                                  const offerCheckOut = new Date(offer.check_out);
+                                  const searchCheckIn = new Date(checkIn);
+                                  const searchCheckOut = new Date(checkOut);
+                                  const datesMatch = offerCheckIn.getTime() === searchCheckIn.getTime() && 
+                                                   offerCheckOut.getTime() === searchCheckOut.getTime();
+                                  
+                                  return (
+                                    <div
+                                      key={offer.id}
+                                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+                                    >
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-3">
+                                          <div className="font-semibold text-blue-600">
+                                            ${offer.price.toFixed(2)}/night
+                                          </div>
+                                          {offer.availability_count !== undefined && offer.availability_count > 0 && (
+                                            <span className="text-xs text-gray-600">
+                                              {offer.availability_count} {offer.availability_count === 1 ? 'room' : 'rooms'} available
+                                            </span>
+                                          )}
+                                          {!datesMatch && (
+                                            <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                                              Dates: {offer.check_in} to {offer.check_out}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {offer.room_type && (
+                                          <div className="text-xs text-gray-600 mt-1">
+                                            {offer.room_type}
+                                          </div>
+                                        )}
+                                        {offer.cancellation_policy && offer.cancellation_policy.free_cancellation && (
+                                          <div className="text-xs text-green-600 mt-1">
+                                            ✓ Free cancellation
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            const response = await apiClient.post('/v1/search-booking/bookings/click', {
+                                              offer_id: offer.id,
+                                              provider: offer.provider,
+                                              affiliate_link: `https://example.com/book/${offer.id}`
+                                            });
+                                            // In production, redirect to affiliate link
+                                            window.open(`https://example.com/book/${offer.id}`, '_blank');
+                                          } catch (err) {
+                                            console.error('Click tracking error:', err);
+                                          }
+                                        }}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium ml-4"
+                                      >
+                                        Book Now
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {result.offers.length > 3 && (
+                                <div className="mt-2 text-sm text-blue-600 text-center">
+                                  +{result.offers.length - 3} more offers available
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

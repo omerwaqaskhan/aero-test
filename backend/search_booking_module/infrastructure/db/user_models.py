@@ -137,13 +137,8 @@ class SavedSearchModel(Base):
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
-    # Search parameters
-    destination = Column(String(255), nullable=False)
-    check_in = Column(Date, nullable=True)
-    check_out = Column(Date, nullable=True)
-    guests = Column(Integer, nullable=True, default=1)
-    rooms = Column(Integer, nullable=True, default=1)
-    filters = Column(JSON, nullable=False, default=dict)  # min_price, max_price, stars, amenities, etc.
+    # Search parameters - stored as JSONB in search_query column
+    search_query = Column(JSON, nullable=False, default=dict)  # Contains destination, check_in, check_out, guests, rooms, filters
     
     # Metadata
     name = Column(String(255), nullable=True)  # User-given name for the search
@@ -152,10 +147,51 @@ class SavedSearchModel(Base):
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_searched_at = Column(DateTime, nullable=True)
+    
+    # Helper properties to access search_query fields
+    @property
+    def destination(self):
+        return self.search_query.get('destination', '') if isinstance(self.search_query, dict) else ''
+    
+    @property
+    def check_in(self):
+        if isinstance(self.search_query, dict) and self.search_query.get('check_in'):
+            from datetime import date
+            check_in_val = self.search_query['check_in']
+            if isinstance(check_in_val, str):
+                return date.fromisoformat(check_in_val)
+            return check_in_val
+        return None
+    
+    @property
+    def check_out(self):
+        if isinstance(self.search_query, dict) and self.search_query.get('check_out'):
+            from datetime import date
+            check_out_val = self.search_query['check_out']
+            if isinstance(check_out_val, str):
+                return date.fromisoformat(check_out_val)
+            return check_out_val
+        return None
+    
+    @property
+    def guests(self):
+        return self.search_query.get('guests', 1) if isinstance(self.search_query, dict) else 1
+    
+    @property
+    def rooms(self):
+        return self.search_query.get('rooms', 1) if isinstance(self.search_query, dict) else 1
+    
+    @property
+    def filters(self):
+        return self.search_query.get('filters', {}) if isinstance(self.search_query, dict) else {}
+    
+    @property
+    def last_searched_at(self):
+        return self.search_query.get('last_searched_at') if isinstance(self.search_query, dict) else None
     
     def __repr__(self):
-        return f"<SavedSearchModel(id={self.id}, user_id={self.user_id}, destination={self.destination})>"
+        dest = self.destination
+        return f"<SavedSearchModel(id={self.id}, user_id={self.user_id}, destination={dest})>"
 
 
 class UserReviewModel(Base):

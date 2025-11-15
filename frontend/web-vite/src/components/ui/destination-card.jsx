@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Star, MapPin, Heart } from 'lucide-react';
 
 const DestinationCard = ({ destination, onFavorite, isFavorite = false }) => {
+  const navigate = useNavigate();
   const {
     id,
     name,
@@ -98,7 +100,10 @@ const DestinationCard = ({ destination, onFavorite, isFavorite = false }) => {
         </div>
 
         {/* Action Button */}
-        <button className="w-full bg-gray-100 hover:bg-gradient-to-r hover:from-blue-600 hover:to-teal-600 hover:text-white text-gray-700 py-3 px-4 rounded-xl transition-all duration-200 font-semibold">
+        <button 
+          onClick={() => navigate(`/search?destination=${encodeURIComponent(name)}`)}
+          className="w-full bg-gray-100 hover:bg-gradient-to-r hover:from-blue-600 hover:to-teal-600 hover:text-white text-gray-700 py-3 px-4 rounded-xl transition-all duration-200 font-semibold"
+        >
           View Hotels
         </button>
       </div>
