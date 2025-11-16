@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navigation from '../components/layout/navigation';
 import Footer from '../components/layout/footer';
@@ -33,30 +33,25 @@ export default function SearchPage() {
   const guests = parseInt(searchParams.get('guests') || '1');
   const rooms = parseInt(searchParams.get('rooms') || '1');
 
-  useEffect(() => {
-    if (destination && checkIn && checkOut) {
-      performSearch();
-    }
-  }, [destination, checkIn, checkOut, guests, rooms]);
-  
-  // Separate effect for filters to avoid infinite loop
-  useEffect(() => {
-    if (destination && checkIn && checkOut && Object.values(filters).some(v => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : true))) {
-      performSearch();
-    }
-  }, [filters]);
-
-  const performSearch = async () => {
+  // Define performSearch before useEffect hooks that use it
+  const performSearch = useCallback(async () => {
     setLoading(true);
     setError(null);
 
+    // Get current values from searchParams
+    const currentDestination = searchParams.get('destination') || '';
+    const currentCheckIn = searchParams.get('check_in') || searchParams.get('checkIn') || '';
+    const currentCheckOut = searchParams.get('check_out') || searchParams.get('checkOut') || '';
+    const currentGuests = parseInt(searchParams.get('guests') || '1');
+    const currentRooms = parseInt(searchParams.get('rooms') || '1');
+
     try {
       const params = new URLSearchParams({
-        destination,
-        check_in: checkIn,
-        check_out: checkOut,
-        guests: guests.toString(),
-        rooms: rooms.toString(),
+        destination: currentDestination,
+        check_in: currentCheckIn,
+        check_out: currentCheckOut,
+        guests: currentGuests.toString(),
+        rooms: currentRooms.toString(),
         sort_by: 'price',
         sort_order: 'asc',
         page: '1',
@@ -108,7 +103,49 @@ export default function SearchPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchParams, filters]);
+
+  // Set default dates if destination is provided but dates are missing
+  useEffect(() => {
+    if (destination && !checkIn && !checkOut) {
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dayAfterTomorrow = new Date(today);
+      dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 3);
+      
+      const defaultCheckIn = tomorrow.toISOString().split('T')[0];
+      const defaultCheckOut = dayAfterTomorrow.toISOString().split('T')[0];
+      
+      // Update URL params with default dates
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('check_in', defaultCheckIn);
+      newParams.set('check_out', defaultCheckOut);
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [destination, checkIn, checkOut, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    // Get fresh values from searchParams after they might have been updated
+    const currentCheckIn = searchParams.get('check_in') || searchParams.get('checkIn') || '';
+    const currentCheckOut = searchParams.get('check_out') || searchParams.get('checkOut') || '';
+    const currentDestination = searchParams.get('destination') || '';
+    
+    if (currentDestination && currentCheckIn && currentCheckOut) {
+      performSearch();
+    }
+  }, [searchParams, performSearch]);
+  
+  // Separate effect for filters to avoid infinite loop
+  useEffect(() => {
+    const currentCheckIn = searchParams.get('check_in') || searchParams.get('checkIn') || '';
+    const currentCheckOut = searchParams.get('check_out') || searchParams.get('checkOut') || '';
+    const currentDestination = searchParams.get('destination') || '';
+    
+    if (currentDestination && currentCheckIn && currentCheckOut && Object.values(filters).some(v => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : true))) {
+      performSearch();
+    }
+  }, [filters, searchParams, performSearch]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
