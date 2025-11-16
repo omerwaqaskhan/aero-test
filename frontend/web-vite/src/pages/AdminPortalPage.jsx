@@ -26,7 +26,11 @@ const { Search } = Input;
 const AdminPortalPage = () => {
   const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const [selectedMenu, setSelectedMenu] = useState('dashboard');
+  // Persist selected menu in localStorage to prevent reset on re-render
+  const [selectedMenu, setSelectedMenu] = useState(() => {
+    const saved = localStorage.getItem('admin_portal_selected_menu');
+    return saved || 'dashboard';
+  });
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [data, setData] = useState([]);
@@ -34,6 +38,11 @@ const AdminPortalPage = () => {
   const [filters, setFilters] = useState({});
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+
+  // Update localStorage when selectedMenu changes
+  useEffect(() => {
+    localStorage.setItem('admin_portal_selected_menu', selectedMenu);
+  }, [selectedMenu]);
 
   useEffect(() => {
     if (selectedMenu === 'dashboard') {
@@ -276,7 +285,13 @@ const AdminPortalPage = () => {
             selectedKeys={[selectedMenu]}
             mode="inline"
             items={menuItems}
-            onClick={({ key }) => setSelectedMenu(key)}
+            onClick={({ key }) => {
+              setSelectedMenu(key);
+              // Reset pagination when switching tabs
+              setPagination(prev => ({ ...prev, page: 1 }));
+              // Clear filters when switching tabs
+              setFilters({});
+            }}
           />
         </Sider>
         <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'margin-left 0.2s' }}>
