@@ -3,52 +3,72 @@ import RoomCard from './RoomCard';
 
 const RoomListingSection = ({ rooms, offers, onBook }) => {
   // Match rooms with their specific offers (one-to-one matching)
-  // Only show rooms that have matching offers, or show all unique rooms without duplicating offer data
+  // Show all unique rooms - only deduplicate by room ID, not by room type name
+  // (Different rooms can have the same type name, e.g., multiple "Standard Room" options)
   const displayItems = useMemo(() => {
     const items = [];
     const usedOfferIds = new Set();
+    const seenRoomIds = new Set(); // Track room IDs to avoid duplicates
     
     // First, match rooms with their specific offers
     for (const room of rooms) {
+      const roomId = room?.id;
+      
+      // Skip if we've already seen this room ID (by ID, not by name)
+      if (roomId && seenRoomIds.has(roomId)) {
+        continue;
+      }
+      
       const matchingOffer = offers.find(offer => offer.room_id === room.id);
       if (matchingOffer) {
         items.push({ room, offer: matchingOffer });
         usedOfferIds.add(matchingOffer.id);
+        if (roomId) seenRoomIds.add(roomId);
       } else {
         // Room without a matching offer - show it without offer data
         items.push({ room, offer: null });
+        if (roomId) seenRoomIds.add(roomId);
       }
     }
     
     // If we have offers that weren't matched to rooms, add them as separate items
-    // But only if we don't have many rooms already (to avoid duplicates)
-    if (items.length < 10) {
-      for (const offer of offers) {
-        if (!usedOfferIds.has(offer.id)) {
-          // Check if we already have a room with this room_id
-          const existingRoom = rooms.find(r => r.id === offer.room_id);
-          if (!existingRoom) {
-            items.push({ room: null, offer });
-          }
+    for (const offer of offers) {
+      if (!usedOfferIds.has(offer.id)) {
+        // Check if we already have a room with this room_id
+        const existingRoom = rooms.find(r => r.id === offer.room_id);
+        if (!existingRoom) {
+          // Offer without a matching room - show it
+          items.push({ room: null, offer });
+          usedOfferIds.add(offer.id);
         }
       }
     }
     
-    // Deduplicate by room ID to avoid showing the same room twice
-    const seenRoomIds = new Set();
+    // Final deduplication by room ID and offer ID only
+    const finalSeenRoomIds = new Set();
+    const finalSeenOfferIds = new Set();
     const uniqueItems = [];
     for (const item of items) {
       if (item.room) {
-        if (!seenRoomIds.has(item.room.id)) {
-          seenRoomIds.add(item.room.id);
-          uniqueItems.push(item);
+        const roomId = item.room.id;
+        
+        // Skip if we've seen this room ID
+        if (roomId && finalSeenRoomIds.has(roomId)) {
+          continue;
         }
-      } else {
-        // Offers without rooms - deduplicate by offer ID
-        if (!seenRoomIds.has(item.offer.id)) {
-          seenRoomIds.add(item.offer.id);
-          uniqueItems.push(item);
+        
+        finalSeenRoomIds.add(roomId);
+        uniqueItems.push(item);
+      } else if (item.offer) {
+        // Offers without rooms - deduplicate by offer ID only
+        const offerId = item.offer.id;
+        
+        if (offerId && finalSeenOfferIds.has(offerId)) {
+          continue;
         }
+        
+        finalSeenOfferIds.add(offerId);
+        uniqueItems.push(item);
       }
     }
     

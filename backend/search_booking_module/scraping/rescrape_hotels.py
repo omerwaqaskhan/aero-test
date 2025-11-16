@@ -63,40 +63,31 @@ async def rescrape_hotels(limit: int = None, hotel_ids: list = None):
                     details = None
                 
                 if details:
-                    # Update hotel with new data
-                    if details.get('description'):
-                        hotel.description = details.get('description')
-                    if details.get('property_overview'):
-                        hotel.property_overview = details.get('property_overview')
-                    if details.get('images'):
-                        # Merge images
-                        existing_images = hotel.images or []
-                        new_images = details.get('images', [])
-                        all_images = list(set(existing_images + new_images))
-                        hotel.images = all_images[:50]
-                    if details.get('amenities'):
-                        hotel.amenities = details.get('amenities')
-                    if details.get('policies'):
-                        hotel.policies = details.get('policies')
+                    # Prepare hotel data in the format expected by _save_hotel
+                    hotel_data = {
+                        'name': hotel.name,
+                        'source': 'booking.com',  # Default, will be updated if available
+                        'source_url': hotel.source_url,
+                        'description': details.get('description', ''),
+                        'property_overview': details.get('property_overview', ''),
+                        'images': details.get('images', []),
+                        'amenities': details.get('amenities', []),
+                        'policies': details.get('policies', {}),
+                        'rooms_data': details.get('rooms', []),
+                        'reviews_data': details.get('reviews', []),
+                    }
                     
-                    # Update rooms
-                    rooms_data = details.get('rooms', [])
-                    if rooms_data:
-                        logger.info(f"Found {len(rooms_data)} rooms for {hotel.name}")
-                        # Delete old rooms
-                        db.query(RoomModel).filter(RoomModel.hotel_id == hotel.id).delete()
-                        # Save new rooms
-                        await collector._save_real_rooms(hotel, rooms_data)
+                    # Use the same update logic as in _save_hotel to ensure consistency
+                    # This will properly handle updates, deduplication, and only update when data changes
+                    updated = await collector._save_hotel(hotel_data, hotel.city, hotel.country)
                     
-                    # Update reviews
-                    reviews_data = details.get('reviews', [])
-                    if reviews_data:
-                        logger.info(f"Found {len(reviews_data)} reviews for {hotel.name}")
-                        # Add new reviews (don't delete old ones)
-                        await collector._save_real_reviews(hotel, reviews_data)
-                    
+                    # Commit the transaction
                     db.commit()
-                    logger.info(f"✓ Successfully updated {hotel.name}")
+                    
+                    if updated:
+                        logger.info(f"✓ Successfully updated {hotel.name} with {len(details.get('rooms', []))} rooms, {len(details.get('reviews', []))} reviews, {len(details.get('amenities', []))} amenities")
+                    else:
+                        logger.warning(f"Failed to update {hotel.name}")
                 else:
                     logger.warning(f"No details found for {hotel.name}")
                 

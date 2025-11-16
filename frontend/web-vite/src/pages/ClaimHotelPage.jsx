@@ -5,7 +5,7 @@ import Footer from '../components/layout/footer';
 import { apiClient } from '../lib/api-client';
 
 export default function ClaimHotelPage() {
-  const { hotelId } = useParams();
+  const { hotelSlug } = useParams();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     owner_email: '',
@@ -24,7 +24,7 @@ export default function ClaimHotelPage() {
 
     try {
       const response = await apiClient.post('/v1/revenue/listings', {
-        hotel_id: hotelId,
+        hotel_id: hotelSlug,
         package: formData.package,
         owner_email: formData.owner_email,
         owner_name: formData.owner_name,
@@ -32,8 +32,19 @@ export default function ClaimHotelPage() {
       });
 
       setSuccess(true);
-      setTimeout(() => {
-        navigate(`/hotels/${hotelId}`);
+      setTimeout(async () => {
+        // After claiming, navigate using slug if available
+        try {
+          const hotelRes = await apiClient.get(`/v1/search-booking/hotels/${hotelSlug}`);
+          if (hotelRes.data?.hotel?.name) {
+            const slug = hotelRes.data.hotel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+            navigate(`/hotels/${slug}`);
+          } else {
+            navigate(`/hotels/${hotelSlug}`);
+          }
+        } catch {
+          navigate(`/hotels/${hotelSlug}`);
+        }
       }, 3000);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to submit claim request');

@@ -516,7 +516,7 @@ export default function SearchPage() {
                           {/* Action Buttons */}
                           <div className="flex items-center gap-3 mt-auto pt-4 border-t border-gray-100">
                             <a
-                              href={`/hotels/${result.hotel.id}?check_in=${checkIn}&check_out=${checkOut}&guests=${guests}&rooms=${rooms}`}
+                              href={`/hotels/${result.hotel.slug || result.hotel.id}?check_in=${checkIn}&check_out=${checkOut}&guests=${guests}&rooms=${rooms}`}
                               className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors text-sm"
                             >
                               {result.best_price ? 'View Details & Book' : 'View Hotel Details'}

@@ -31,6 +31,46 @@ from search_booking_module.infrastructure.db.models import HotelModel, RoomModel
 router = APIRouter(prefix="/api/v1/search-booking", tags=["search-booking"])
 
 
+def safe_provider_enum(provider_value):
+    """Safely convert provider value to ProviderEnum.
+    
+    Handles invalid provider values by defaulting to ProviderEnum.BOOKING_COM.
+    """
+    try:
+        # Import here to avoid circular imports
+        from search_booking_module.api.schemas import ProviderEnum
+        
+        if hasattr(provider_value, 'value'):
+            # It's an enum, get the value
+            value = provider_value.value
+        elif isinstance(provider_value, str):
+            value = provider_value.lower()
+        else:
+            value = str(provider_value).lower()
+        
+        # Normalize the value
+        value = value.replace('-', '_')
+        
+        # Check if it's a valid enum value and return the enum
+        # Handle both uppercase (from database) and lowercase (from enum values)
+        value_upper = value.upper()
+        if value == 'booking_com' or value_upper == 'BOOKING_COM':
+            return ProviderEnum.BOOKING_COM
+        elif value == 'expedia' or value_upper == 'EXPEDIA':
+            return ProviderEnum.EXPEDIA
+        elif value == 'direct' or value_upper == 'DIRECT':
+            return ProviderEnum.DIRECT
+        elif value == 'agoda' or value_upper == 'AGODA':
+            return ProviderEnum.AGODA
+        else:
+            # Default to booking_com for unknown providers
+            return ProviderEnum.BOOKING_COM
+    except Exception:
+        # Fallback to default provider
+        from search_booking_module.api.schemas import ProviderEnum
+        return ProviderEnum.BOOKING_COM
+
+
 # Initialize providers (in production, this would come from config)
 def get_providers() -> List[BaseProvider]:
     """Get list of available providers."""
@@ -113,7 +153,7 @@ async def search_hotels(
             hotel_response = HotelResponse(
                 id=result.hotel.id,
                 provider_hotel_id=result.hotel.provider_hotel_id,
-                provider=result.hotel.provider.value,
+                provider=safe_provider_enum(result.hotel.provider),
                 name=result.hotel.name,
                 address=result.hotel.address,
                 city=result.hotel.city,
@@ -142,7 +182,7 @@ async def search_hotels(
                     id=offer.id,
                     hotel_id=offer.hotel_id,
                     room_id=offer.room_id,
-                    provider=offer.provider.value,
+                    provider=safe_provider_enum(offer.provider),
                     provider_rate_id=offer.provider_rate_id,
                     currency=offer.currency,
                     price=offer.price,
@@ -231,7 +271,7 @@ async def get_all_hotels(
             hotel_response = HotelResponse(
                 id=hotel.id,
                 provider_hotel_id=hotel.provider_hotel_id,
-                provider=hotel.provider.value if hasattr(hotel.provider, 'value') else str(hotel.provider),
+                provider=safe_provider_enum(hotel.provider),
                 name=hotel.name,
                 address=hotel.address if isinstance(hotel.address, dict) else {},
                 city=hotel.city,
@@ -262,9 +302,9 @@ async def get_all_hotels(
         raise HTTPException(status_code=500, detail=f"Failed to fetch hotels: {str(e)}")
 
 
-@router.get("/hotels/{hotel_id}", response_model=HotelDetailsResponse)
+@router.get("/hotels/{hotel_identifier}", response_model=HotelDetailsResponse)
 async def get_hotel_details(
-    hotel_id: str,
+    hotel_identifier: str,
     check_in: Optional[date] = Query(None, description="Check-in date"),
     check_out: Optional[date] = Query(None, description="Check-out date"),
     guests: int = Query(1, ge=1, le=10, description="Number of guests"),
@@ -274,21 +314,172 @@ async def get_hotel_details(
 ):
     """Get detailed information about a specific hotel.
     
-    This endpoint returns detailed information about a hotel including
-    available rooms, offers, and reviews.
+    This endpoint accepts either a hotel ID (UUID) or a slug (hotel name).
+    Returns detailed information about a hotel including available rooms, offers, and reviews.
     """
     try:
-        # Get hotel from database
-        hotel = db.query(HotelModel).filter(HotelModel.id == hotel_id).first()
+        import re
+        from sqlalchemy import func
+        
+        # Check if it's a UUID format
+        uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.I)
+        
+        if uuid_pattern.match(hotel_identifier):
+            # It's a UUID, query by ID
+            # Use raw SQL to avoid SQLAlchemy enum conversion issues
+            try:
+                hotel = db.query(HotelModel).filter(HotelModel.id == hotel_identifier).first()
+            except (ValueError, AttributeError):
+                # If enum conversion fails, query using raw SQL
+                from sqlalchemy import text
+                result = db.execute(
+                    text("SELECT * FROM hotels WHERE id = :hotel_id"),
+                    {"hotel_id": hotel_identifier}
+                ).fetchone()
+                if result:
+                    # Create hotel object manually
+                    hotel = HotelModel()
+                    for key, value in result._mapping.items():
+                        if key == 'provider' and value not in ['booking_com', 'expedia', 'direct', 'agoda']:
+                            setattr(hotel, key, Provider.BOOKING_COM)  # Default to BOOKING_COM
+                        else:
+                            setattr(hotel, key, value)
+                else:
+                    hotel = None
+        else:
+            # It's a slug, generate slug from hotel name and match
+            # Clean the incoming slug (remove "opens-in-new-window" etc.)
+            cleaned_identifier = hotel_identifier.lower()
+            cleaned_identifier = re.sub(r'\s*opens?\s*in\s*new\s*window\s*', '', cleaned_identifier, flags=re.IGNORECASE)
+            cleaned_identifier = cleaned_identifier.strip('-')
+            
+            # Try to find hotel by matching slug pattern in name
+            # Use raw SQL to avoid SQLAlchemy enum conversion issues with invalid provider values
+            from sqlalchemy import text
+            hotels_raw = db.execute(text("SELECT id, name, provider::text FROM hotels")).fetchall()
+            hotel = None
+            hotels = []
+            
+            def generate_slug(name):
+                """Generate a slug from hotel name."""
+                # Clean the name first
+                slug = name.lower().strip()
+                # Remove "Opens in new window" and similar text
+                slug = re.sub(r'\s*opens?\s*in\s*new\s*window\s*', '', slug, flags=re.IGNORECASE)
+                # Remove special chars except spaces and hyphens
+                slug = re.sub(r'[^\w\s-]', '', slug)
+                # Replace spaces/hyphens with single hyphen
+                slug = re.sub(r'[-\s]+', '-', slug)
+                # Trim hyphens
+                slug = slug.strip('-')
+                return slug
+            
+            # Match hotels by slug
+            for row in hotels_raw:
+                hotel_id, hotel_name, provider_value = row
+                hotel_slug = generate_slug(hotel_name)
+                
+                if hotel_slug == cleaned_identifier:
+                    # Found matching hotel, now load it safely
+                    try:
+                        hotel = db.query(HotelModel).filter(HotelModel.id == hotel_id).first()
+                    except (ValueError, AttributeError):
+                        # If enum conversion fails, query using raw SQL and create object
+                        hotel_row = db.execute(
+                            text("SELECT * FROM hotels WHERE id = :hotel_id"),
+                            {"hotel_id": hotel_id}
+                        ).fetchone()
+                        if hotel_row:
+                            hotel = HotelModel()
+                            for key, value in hotel_row._mapping.items():
+                                if key == 'provider':
+                                    # Convert invalid provider to valid one
+                                    if value not in ['booking_com', 'expedia', 'direct', 'agoda', 'BOOKING_COM', 'EXPEDIA', 'DIRECT', 'AGODA']:
+                                        setattr(hotel, key, Provider.BOOKING_COM)
+                                    else:
+                                        try:
+                                            setattr(hotel, key, Provider[value.upper()] if value.isupper() else Provider(value))
+                                        except:
+                                            setattr(hotel, key, Provider.BOOKING_COM)
+                                else:
+                                    setattr(hotel, key, value)
+                    break
+            
+            # Fallback: try partial match if exact match fails
+            if not hotel:
+                for row in hotels_raw:
+                    hotel_id, hotel_name, provider_value = row
+                    hotel_slug = generate_slug(hotel_name)
+                    
+                    # Try matching cleaned versions
+                    if cleaned_identifier in hotel_slug or hotel_slug in cleaned_identifier:
+                        try:
+                            hotel = db.query(HotelModel).filter(HotelModel.id == hotel_id).first()
+                        except (ValueError, AttributeError):
+                            hotel_row = db.execute(
+                                text("SELECT * FROM hotels WHERE id = :hotel_id"),
+                                {"hotel_id": hotel_id}
+                            ).fetchone()
+                            if hotel_row:
+                                hotel = HotelModel()
+                                for key, value in hotel_row._mapping.items():
+                                    if key == 'provider':
+                                        if value not in ['booking_com', 'expedia', 'direct', 'agoda', 'BOOKING_COM', 'EXPEDIA', 'DIRECT', 'AGODA']:
+                                            setattr(hotel, key, Provider.BOOKING_COM)
+                                        else:
+                                            try:
+                                                setattr(hotel, key, Provider[value.upper()] if value.isupper() else Provider(value))
+                                            except:
+                                                setattr(hotel, key, Provider.BOOKING_COM)
+                                    else:
+                                        setattr(hotel, key, value)
+                        if hotel:
+                            break
+                    
+                    # Also try matching the original identifier
+                    if hotel_identifier in hotel_slug or hotel_slug in hotel_identifier:
+                        if not hotel:
+                            try:
+                                hotel = db.query(HotelModel).filter(HotelModel.id == hotel_id).first()
+                            except (ValueError, AttributeError):
+                                hotel_row = db.execute(
+                                    text("SELECT * FROM hotels WHERE id = :hotel_id"),
+                                    {"hotel_id": hotel_id}
+                                ).fetchone()
+                                if hotel_row:
+                                    hotel = HotelModel()
+                                    for key, value in hotel_row._mapping.items():
+                                        if key == 'provider':
+                                            if value not in ['booking_com', 'expedia', 'direct', 'agoda', 'BOOKING_COM', 'EXPEDIA', 'DIRECT', 'AGODA']:
+                                                setattr(hotel, key, Provider.BOOKING_COM)
+                                            else:
+                                                try:
+                                                    setattr(hotel, key, Provider[value.upper()] if value.isupper() else Provider(value))
+                                                except:
+                                                    setattr(hotel, key, Provider.BOOKING_COM)
+                                        else:
+                                            setattr(hotel, key, value)
+                        if hotel:
+                            break
         
         if not hotel:
             raise HTTPException(status_code=404, detail="Hotel not found")
         
         # Convert hotel to response
+        # Safely get provider value - handle cases where SQLAlchemy enum conversion fails
+        try:
+            hotel_provider = hotel.provider
+        except (ValueError, AttributeError) as e:
+            # If provider enum conversion fails, get raw value from database
+            from sqlalchemy import text
+            result = db.execute(text("SELECT provider::text FROM hotels WHERE id = :hotel_id"), {"hotel_id": hotel.id})
+            raw_provider = result.scalar()
+            hotel_provider = raw_provider if raw_provider else 'booking_com'
+        
         hotel_response = HotelResponse(
             id=hotel.id,
             provider_hotel_id=hotel.provider_hotel_id,
-            provider=hotel.provider.value if hasattr(hotel.provider, 'value') else str(hotel.provider),
+            provider=safe_provider_enum(hotel_provider),
             name=hotel.name,
             address=hotel.address if isinstance(hotel.address, dict) else {},
             city=hotel.city,
@@ -337,11 +528,20 @@ async def get_hotel_details(
         # Convert offers to response
         offers_response = []
         for offer in offers:
+            # Safely get provider value
+            try:
+                offer_provider = offer.provider
+            except (ValueError, AttributeError):
+                from sqlalchemy import text
+                result = db.execute(text("SELECT provider::text FROM offers WHERE id = :offer_id"), {"offer_id": offer.id})
+                raw_provider = result.scalar()
+                offer_provider = raw_provider if raw_provider else 'booking_com'
+            
             offer_response = OfferResponse(
                 id=offer.id,
                 hotel_id=offer.hotel_id,
                 room_id=offer.room_id,
-                provider=offer.provider.value if hasattr(offer.provider, 'value') else str(offer.provider),
+                provider=safe_provider_enum(offer_provider),
                 provider_rate_id=offer.provider_rate_id,
                 currency=offer.currency,
                 price=offer.price,
@@ -357,13 +557,23 @@ async def get_hotel_details(
             offers_response.append(offer_response)
         
         # Get reviews for this hotel
-        reviews = db.query(ReviewModel).filter(ReviewModel.hotel_id == hotel_id).order_by(ReviewModel.fetched_at.desc()).limit(20).all()
+        # Use hotel.id instead of hotel_id variable to ensure we have the correct ID
+        reviews = db.query(ReviewModel).filter(ReviewModel.hotel_id == hotel.id).order_by(ReviewModel.fetched_at.desc()).limit(20).all()
         reviews_response = []
         for review in reviews:
+            # Safely get provider value
+            try:
+                review_provider = review.provider
+            except (ValueError, AttributeError):
+                from sqlalchemy import text
+                result = db.execute(text("SELECT provider::text FROM reviews WHERE id = :review_id"), {"review_id": review.id})
+                raw_provider = result.scalar()
+                review_provider = raw_provider if raw_provider else 'booking_com'
+            
             review_response = ReviewResponse(
                 id=review.id,
                 hotel_id=review.hotel_id,
-                provider=review.provider.value if hasattr(review.provider, 'value') else str(review.provider),
+                provider=safe_provider_enum(review_provider),
                 rating=review.rating,
                 title=review.title or "",
                 text=review.text or "",

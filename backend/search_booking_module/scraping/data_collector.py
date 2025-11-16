@@ -412,6 +412,173 @@ class HotelDataCollector:
         
         return list(hotel_map.values())
     
+    def _normalize_hotel_name(self, name: str) -> str:
+        """Normalize hotel name for comparison (remove special chars, lowercase, etc.)."""
+        if not name:
+            return ""
+        # Remove common suffixes/prefixes that cause false duplicates
+        normalized = name.lower().strip()
+        # Remove "Opens in new window" and similar text
+        import re
+        normalized = re.sub(r'\s*opens?\s*in\s*new\s*window\s*', '', normalized, flags=re.IGNORECASE)
+        # Remove special characters except spaces and hyphens
+        normalized = re.sub(r'[^\w\s-]', '', normalized)
+        # Replace multiple spaces/hyphens with single space
+        normalized = re.sub(r'[-\s]+', ' ', normalized)
+        # Remove common hotel suffixes that vary
+        suffixes = [' hotel', ' resort', ' inn', ' lodge', ' suites', ' suite']
+        for suffix in suffixes:
+            if normalized.endswith(suffix):
+                normalized = normalized[:-len(suffix)]
+        return normalized.strip()
+    
+    def _extract_provider_hotel_id(self, hotel_data: Dict[str, Any], source: str) -> Optional[str]:
+        """Extract provider hotel ID from hotel data or URL."""
+        # Check if already provided
+        provider_hotel_id = hotel_data.get('provider_hotel_id') or hotel_data.get('hotel_id')
+        if provider_hotel_id:
+            return str(provider_hotel_id)
+        
+        # Try to extract from source_url
+        source_url = hotel_data.get('source_url') or hotel_data.get('url')
+        if source_url:
+            import re
+            # Booking.com: /hotel/{country}/{hotel-name}.html
+            if 'booking.com' in source_url:
+                match = re.search(r'/hotel/([^/]+)/([^/]+)\.html', source_url)
+                if match:
+                    country_code, hotel_slug = match.groups()
+                    # Extract hotel ID from slug if it contains numbers
+                    id_match = re.search(r'(\d+)', hotel_slug)
+                    if id_match:
+                        return f"booking_{id_match.group(1)}"
+                    # Otherwise use slug as ID
+                    return f"booking_{hotel_slug[:50]}"
+            
+            # Expedia: /Hotel-Search?destinationId=... or /hotel/{id}
+            elif 'expedia.com' in source_url:
+                match = re.search(r'/hotel/(\d+)', source_url)
+                if match:
+                    return f"expedia_{match.group(1)}"
+                match = re.search(r'hotelId=(\d+)', source_url)
+                if match:
+                    return f"expedia_{match.group(1)}"
+            
+            # Hotels.com: /hotels/{id}
+            elif 'hotels.com' in source_url:
+                match = re.search(r'/hotels/(\d+)', source_url)
+                if match:
+                    return f"hotels_{match.group(1)}"
+            
+            # Agoda: /hotels/{country}/{hotel-name}
+            elif 'agoda.com' in source_url:
+                match = re.search(r'/hotels/([^/]+)/([^/]+)', source_url)
+                if match:
+                    country_code, hotel_slug = match.groups()
+                    return f"agoda_{hotel_slug[:50]}"
+        
+        # Fallback: generate from source and name
+        hotel_name = hotel_data.get('name', '')
+        if hotel_name:
+            import hashlib
+            # Create a hash of the normalized name for consistency
+            normalized = self._normalize_hotel_name(hotel_name)
+            name_hash = hashlib.md5(normalized.encode()).hexdigest()[:12]
+            return f"{source}_{name_hash}"
+        
+        return None
+    
+    def _find_existing_hotel(
+        self,
+        hotel_data: Dict[str, Any],
+        destination: str,
+        country: Optional[str] = None
+    ) -> Optional[HotelModel]:
+        """Find existing hotel using multiple matching strategies."""
+        hotel_name = hotel_data.get('name', '')
+        source = hotel_data.get('source', 'unknown')
+        latitude = hotel_data.get('latitude')
+        longitude = hotel_data.get('longitude')
+        
+        # Extract provider from source
+        provider_map = {
+            'booking.com': Provider.BOOKING_COM,
+            'tripadvisor': Provider.BOOKING_COM,
+            'expedia': Provider.EXPEDIA,
+            'hotels.com': Provider.BOOKING_COM,  # Hotels.com uses similar structure
+            'agoda': Provider.AGODA,
+        }
+        provider = provider_map.get(source.lower(), Provider.BOOKING_COM)
+        
+        # Extract provider_hotel_id
+        provider_hotel_id = self._extract_provider_hotel_id(hotel_data, source)
+        
+        # Strategy 1: Match by provider_hotel_id (most reliable)
+        if provider_hotel_id:
+            try:
+                existing = self.db_session.query(HotelModel).filter(
+                    and_(
+                        HotelModel.provider_hotel_id == str(provider_hotel_id),
+                        HotelModel.provider == provider
+                    )
+                ).first()
+                if existing:
+                    logger.debug(f"Found existing hotel by provider_hotel_id: {provider_hotel_id}")
+                    return existing
+            except Exception as e:
+                logger.debug(f"Error matching by provider_hotel_id: {e}")
+                pass
+        
+        # Strategy 2: Match by normalized name + city (improved)
+        if hotel_name and destination:
+            normalized_name = self._normalize_hotel_name(hotel_name)
+            # Find hotels with similar normalized names in the same city
+            all_hotels_in_city = self.db_session.query(HotelModel).filter(
+                HotelModel.city.ilike(destination)
+            ).all()
+            
+            for hotel in all_hotels_in_city:
+                existing_normalized = self._normalize_hotel_name(hotel.name)
+                # Check if normalized names are very similar (exact match or one contains the other)
+                if normalized_name and existing_normalized:
+                    if normalized_name == existing_normalized:
+                        return hotel
+                    # Check if one is contained in the other (handles variations like "Hotel ABC" vs "Hotel ABC Downtown")
+                    if len(normalized_name) > 10 and len(existing_normalized) > 10:
+                        if normalized_name in existing_normalized or existing_normalized in normalized_name:
+                            # Additional check: similarity should be high
+                            shorter = min(len(normalized_name), len(existing_normalized))
+                            longer = max(len(normalized_name), len(existing_normalized))
+                            if shorter / longer > 0.8:  # At least 80% similarity
+                                return hotel
+        
+        # Strategy 3: Match by coordinates (same location = likely same hotel)
+        if latitude and longitude:
+            # Check for hotels within 100 meters (approximately 0.001 degrees)
+            from sqlalchemy import func
+            existing = self.db_session.query(HotelModel).filter(
+                and_(
+                    func.abs(HotelModel.latitude - latitude) < 0.001,
+                    func.abs(HotelModel.longitude - longitude) < 0.001,
+                    HotelModel.city.ilike(destination)
+                )
+            ).first()
+            if existing:
+                return existing
+        
+        # Strategy 4: Fallback to original method (exact name + city match)
+        if hotel_name and destination:
+            existing = self.db_session.query(HotelModel).filter(
+                and_(
+                    HotelModel.name.ilike(hotel_name),
+                    HotelModel.city.ilike(destination)
+                )
+            ).first()
+            if existing:
+                return existing
+        
+        return None
+    
     async def _save_hotel(
         self,
         hotel_data: Dict[str, Any],
@@ -420,24 +587,35 @@ class HotelDataCollector:
     ) -> bool:
         """Save hotel data to database."""
         try:
-            # Check if hotel already exists
-            existing = self.db_session.query(HotelModel).filter(
-                and_(
-                    HotelModel.name.ilike(hotel_data.get('name', '')),
-                    HotelModel.city.ilike(destination)
-                )
-            ).first()
+            # Check if hotel already exists using improved duplicate detection
+            existing = self._find_existing_hotel(hotel_data, destination, country)
             
             if existing:
-                # Update existing hotel with enhanced data (only if real data exists)
-                if hotel_data.get('address'):
-                    existing.address = hotel_data.get('address')
-                if hotel_data.get('description'):
-                    existing.description = hotel_data.get('description')
-                if hotel_data.get('property_overview'):
-                    existing.property_overview = hotel_data.get('property_overview')
+                logger.info(f"Found existing hotel: {existing.name} in {destination}, updating with new data")
                 
-                # Update images - merge new images with existing
+                # Update provider_hotel_id if we have a better one
+                source = hotel_data.get('source', 'unknown')
+                new_provider_hotel_id = self._extract_provider_hotel_id(hotel_data, source)
+                if new_provider_hotel_id and (not existing.provider_hotel_id or existing.provider_hotel_id.startswith(f"{source}_")):
+                    existing.provider_hotel_id = new_provider_hotel_id
+                    logger.debug(f"Updated provider_hotel_id to: {new_provider_hotel_id}")
+                
+                # Update existing hotel with enhanced data (only if real data exists and is different)
+                updated = False
+                
+                if hotel_data.get('address') and hotel_data.get('address') != existing.address:
+                    existing.address = hotel_data.get('address')
+                    updated = True
+                
+                if hotel_data.get('description') and hotel_data.get('description') != existing.description:
+                    existing.description = hotel_data.get('description')
+                    updated = True
+                
+                if hotel_data.get('property_overview') and hotel_data.get('property_overview') != existing.property_overview:
+                    existing.property_overview = hotel_data.get('property_overview')
+                    updated = True
+                
+                # Update images - merge new images with existing (only if new images exist)
                 new_images = hotel_data.get('images', [])
                 if not new_images and hotel_data.get('image_url'):
                     new_images = [hotel_data['image_url']]
@@ -445,55 +623,86 @@ class HotelDataCollector:
                     # Merge and deduplicate images
                     existing_images = existing.images or []
                     all_images = list(set(existing_images + new_images))
-                    existing.images = all_images[:50]  # Limit to 50 images
+                    if len(all_images) > len(existing_images):
+                        existing.images = all_images[:50]  # Limit to 50 images
+                        updated = True
                 
-                existing.amenities = hotel_data.get('amenities') or existing.amenities
-                existing.policies = hotel_data.get('policies') or existing.policies
-                if hotel_data.get('rating'):
+                # Update amenities only if new ones are provided and different
+                new_amenities = hotel_data.get('amenities', [])
+                if new_amenities:
+                    existing_amenities = existing.amenities or []
+                    # Normalize for comparison
+                    existing_amenities_lower = {a.lower() for a in existing_amenities}
+                    new_amenities_lower = {a.lower() for a in new_amenities}
+                    if new_amenities_lower != existing_amenities_lower:
+                        # Merge amenities (keep existing + add new)
+                        all_amenities = list(set(existing_amenities + new_amenities))
+                        existing.amenities = all_amenities
+                        updated = True
+                
+                # Update policies only if new ones are provided and different
+                new_policies = hotel_data.get('policies', {})
+                if new_policies and new_policies != existing.policies:
+                    # Merge policies (keep existing, update with new)
+                    merged_policies = existing.policies or {}
+                    merged_policies.update(new_policies)
+                    existing.policies = merged_policies
+                    updated = True
+                
+                if hotel_data.get('rating') and hotel_data.get('rating') != existing.rating:
                     existing.rating = hotel_data.get('rating')
-                if hotel_data.get('stars'):
+                    updated = True
+                
+                if hotel_data.get('stars') and hotel_data.get('stars') != existing.stars:
                     existing.stars = hotel_data.get('stars')
-                existing.updated_at = datetime.utcnow()
+                    updated = True
+                
+                # Only update timestamp if something actually changed
+                if updated:
+                    existing.updated_at = datetime.utcnow()
+                    logger.debug(f"Updated existing hotel {existing.name} with new data")
+                else:
+                    logger.debug(f"No changes detected for {existing.name}, skipping update")
                 
                 # Update rooms and reviews if we have new data
                 rooms_data = hotel_data.get('rooms_data', [])
-            if rooms_data:
-                # Filter out invalid rooms (like "Guest reviews", "Sustainability", etc.)
-                valid_rooms = []
-                for room in rooms_data:
-                    room_name = room.get('room_type_name', '').lower().strip()
-                    # Filter out non-room elements
-                    invalid_patterns = ['guest reviews', 'reviews', 'sustainability', 'environment', 
-                                      'green', 'eco', 'location', 'map', 'directions', 'contact',
-                                      'check-in', 'check-out', 'cancellation', 'terms', 'conditions',
-                                      'privacy', 'cookie', 'accessibility', 'access', 'wheelchair',
-                                      'parking', 'transportation', 'airport', 'amenities', 'facilities',
-                                      'policies', 'description', 'overview']
-                    if not any(pattern in room_name for pattern in invalid_patterns):
-                        # Also check if it's a valid room name (has room indicators or is short)
-                        room_indicators = ['room', 'suite', 'apartment', 'villa', 'studio', 'deluxe', 
-                                         'standard', 'executive', 'presidential', 'junior', 'superior',
-                                         'family', 'double', 'single', 'twin', 'king', 'queen', 'bed',
-                                         'accommodation', 'basic']
-                        if any(indicator in room_name for indicator in room_indicators) or len(room.get('room_type_name', '')) <= 20:
-                            valid_rooms.append(room)
+                if rooms_data:
+                    # Filter out invalid rooms (like "Guest reviews", "Sustainability", etc.)
+                    valid_rooms = []
+                    for room in rooms_data:
+                        room_name = room.get('room_type_name', '').lower().strip()
+                        # Filter out non-room elements
+                        invalid_patterns = ['guest reviews', 'reviews', 'sustainability', 'environment', 
+                                          'green', 'eco', 'location', 'map', 'directions', 'contact',
+                                          'check-in', 'check-out', 'cancellation', 'terms', 'conditions',
+                                          'privacy', 'cookie', 'accessibility', 'access', 'wheelchair',
+                                          'parking', 'transportation', 'airport', 'amenities', 'facilities',
+                                          'policies', 'description', 'overview']
+                        if not any(pattern in room_name for pattern in invalid_patterns):
+                            # Also check if it's a valid room name (has room indicators or is short)
+                            room_indicators = ['room', 'suite', 'apartment', 'villa', 'studio', 'deluxe', 
+                                             'standard', 'executive', 'presidential', 'junior', 'superior',
+                                             'family', 'double', 'single', 'twin', 'king', 'queen', 'bed',
+                                             'accommodation', 'basic']
+                            if any(indicator in room_name for indicator in room_indicators) or len(room.get('room_type_name', '')) <= 20:
+                                valid_rooms.append(room)
                 
-                if valid_rooms:
-                    # Delete old rooms and create new ones with ALL valid rooms (no limit!)
-                    self.db_session.query(RoomModel).filter(RoomModel.hotel_id == existing.id).delete()
-                    await self._save_real_rooms(existing, valid_rooms)
-                    logger.info(f"Updated {existing.name} with {len(valid_rooms)} real rooms")
-                else:
-                    # If no valid rooms found, keep existing rooms or leave empty (no dummy rooms)
-                    existing_room_count = self.db_session.query(RoomModel).filter(RoomModel.hotel_id == existing.id).count()
-                    if existing_room_count == 0:
-                        logger.info(f"No valid rooms found for {existing.name}, hotel will have no rooms (real data only)")
+                    if valid_rooms:
+                        # Delete old rooms and create new ones with ALL valid rooms (no limit!)
+                        self.db_session.query(RoomModel).filter(RoomModel.hotel_id == existing.id).delete()
+                        await self._save_real_rooms(existing, valid_rooms)
+                        logger.info(f"Updated {existing.name} with {len(valid_rooms)} real rooms")
                     else:
-                        logger.info(f"No new valid rooms found for {existing.name}, keeping {existing_room_count} existing rooms")
+                        # If no valid rooms found, keep existing rooms or leave empty (no dummy rooms)
+                        existing_room_count = self.db_session.query(RoomModel).filter(RoomModel.hotel_id == existing.id).count()
+                        if existing_room_count == 0:
+                            logger.info(f"No valid rooms found for {existing.name}, hotel will have no rooms (real data only)")
+                        else:
+                            logger.info(f"No new valid rooms found for {existing.name}, keeping {existing_room_count} existing rooms")
                 
                 reviews_data = hotel_data.get('reviews_data', [])
                 if reviews_data:
-                    # Add new reviews (don't delete old ones)
+                    # Add new reviews (don't delete old ones, avoid duplicates)
                     await self._save_real_reviews(existing, reviews_data)
                 
                 return True
@@ -564,8 +773,17 @@ class HotelDataCollector:
                         upgraded_images.append(img_url)
                 images = upgraded_images
             
+            # Extract or generate provider_hotel_id
+            provider_hotel_id = self._extract_provider_hotel_id(hotel_data, source)
+            if not provider_hotel_id:
+                # Fallback: use source and normalized name
+                normalized_name = self._normalize_hotel_name(hotel_data.get('name', ''))
+                import hashlib
+                name_hash = hashlib.md5(normalized_name.encode()).hexdigest()[:12]
+                provider_hotel_id = f"{source}_{name_hash}"
+            
             new_hotel = HotelModel(
-                provider_hotel_id=f"{source}_{hotel_data.get('name', '')[:50]}",
+                provider_hotel_id=provider_hotel_id,
                 provider=provider.value,
                 name=hotel_data.get('name', 'Unknown Hotel'),
                 address=hotel_data.get('address') or destination,
@@ -759,8 +977,38 @@ class HotelDataCollector:
     async def _save_real_rooms(self, hotel: HotelModel, rooms_data: List[Dict[str, Any]]) -> None:
         """Save real room data scraped from hotel detail page."""
         logger.info(f"Saving {len(rooms_data)} rooms for {hotel.name}")
+        
+        # Deduplicate rooms by room_type_name (case-insensitive) before saving
+        seen_room_names = set()
+        unique_rooms_data = []
         for room_data in rooms_data:
+            room_name = room_data.get('room_type_name', '').strip()
+            if not room_name:
+                continue
+            room_name_lower = room_name.lower()
+            if room_name_lower not in seen_room_names:
+                seen_room_names.add(room_name_lower)
+                unique_rooms_data.append(room_data)
+        
+        logger.info(f"After deduplication: {len(unique_rooms_data)} unique rooms for {hotel.name}")
+        
+        # Get existing rooms for this hotel to avoid duplicates
+        existing_rooms = self.db_session.query(RoomModel).filter(
+            RoomModel.hotel_id == hotel.id
+        ).all()
+        existing_room_names = {r.room_type_name.lower() for r in existing_rooms}
+        
+        for room_data in unique_rooms_data:
             try:
+                room_name = room_data.get('room_type_name', '').strip()
+                if not room_name:
+                    continue
+                
+                # Check if room with same name already exists
+                if room_name.lower() in existing_room_names:
+                    logger.debug(f"Room '{room_name}' already exists for {hotel.name}, skipping")
+                    continue
+                
                 # Extract images - use room images if available, otherwise use hotel images
                 room_images = room_data.get('images', [])
                 if not room_images and hotel.images:
@@ -782,55 +1030,69 @@ class HotelDataCollector:
                         if img_url:
                             cleaned_images.append(img_url)
                 
+                # Only use real data - no dummy defaults
+                occupancy = room_data.get('occupancy', {})
+                if not occupancy or not isinstance(occupancy, dict):
+                    occupancy = {}
+                
+                amenities = room_data.get('amenities', [])
+                if not amenities or not isinstance(amenities, list):
+                    amenities = []
+                
                 room = RoomModel(
                     hotel_id=hotel.id,
-                    room_type_name=room_data.get('room_type_name', 'Standard Room'),
-                    description=room_data.get('description', ''),
+                    room_type_name=room_name,
+                    description=room_data.get('description', '') or '',
                     images=cleaned_images[:10],  # Limit to 10 images per room
-                    occupancy=room_data.get('occupancy', {
-                        'size': 18,
-                        'max_guests': 2,
-                        'bed_type': '1 queen bed or 2 separate beds'
-                    }),
-                    amenities=room_data.get('amenities', ['WiFi', 'TV', 'Air conditioning', 'Private bathroom'])
+                    occupancy=occupancy,  # Only real occupancy data
+                    amenities=amenities  # Only real amenities
                 )
                 self.db_session.add(room)
                 self.db_session.flush()
+                existing_room_names.add(room_name.lower())  # Track newly added room
                 logger.debug(f"Saved room: {room.room_type_name} with {len(cleaned_images)} images")
                 
-                # Create offer for this room
-                check_in = date.today() + timedelta(days=1)
-                check_out = check_in + timedelta(days=2)
+                # DO NOT create dummy offers here - offers should come from real scraping/price checking
+                # Real offers will be created by the price_checker service or scrapers
                 
-                # Calculate price based on room type (rough estimate)
-                base_price = 180
-                if 'deluxe' in room_data.get('room_type_name', '').lower():
-                    base_price = 280
-                elif 'comfort' in room_data.get('room_type_name', '').lower():
-                    base_price = 220
-                
-                offer = OfferModel(
-                    hotel_id=hotel.id,
-                    room_id=room.id,
-                    provider=hotel.provider,
-                    provider_rate_id=f"default_{hotel.id}_{room.id}",
-                    currency='USD',
-                    price=base_price,
-                    taxes_included=True,
-                    check_in=check_in,
-                    check_out=check_out,
-                    availability_count=5,
-                    cancellation_policy={'free_cancellation': True, 'deadline': '24 hours before check-in'},
-                )
-                self.db_session.add(offer)
             except Exception as e:
                 logger.error(f"Error saving room {room_data.get('room_type_name')}: {e}")
                 continue
     
     async def _save_real_reviews(self, hotel: HotelModel, reviews_data: List[Dict[str, Any]]) -> None:
-        """Save real review data scraped from hotel detail page."""
+        """Save real review data scraped from hotel detail page, avoiding duplicates."""
+        # Get existing reviews to avoid duplicates
+        existing_reviews = self.db_session.query(ReviewModel).filter(
+            ReviewModel.hotel_id == hotel.id
+        ).all()
+        
+        # Create a set of existing review signatures (text + author for deduplication)
+        existing_signatures = set()
+        for existing_review in existing_reviews:
+            # Use text + author as signature (normalized)
+            text = (existing_review.text or '').strip().lower()[:200]  # First 200 chars
+            author = (existing_review.author or 'Anonymous').strip().lower()
+            signature = f"{author}:{text}"
+            existing_signatures.add(signature)
+        
+        new_reviews_count = 0
         for review_data in reviews_data:
             try:
+                # Create signature for this review
+                text = (review_data.get('text', '') or '').strip().lower()[:200]
+                author = (review_data.get('author', 'Anonymous') or 'Anonymous').strip().lower()
+                signature = f"{author}:{text}"
+                
+                # Skip if review already exists
+                if signature in existing_signatures:
+                    logger.debug(f"Review by {author} already exists for {hotel.name}, skipping")
+                    continue
+                
+                # Only save if we have meaningful content
+                if not text or len(text) < 20:
+                    if not review_data.get('title') or len(review_data.get('title', '')) < 5:
+                        continue
+                
                 review = ReviewModel(
                     hotel_id=hotel.id,
                     provider=hotel.provider,
@@ -843,7 +1105,12 @@ class HotelDataCollector:
                     category_ratings=review_data.get('category_ratings', {})
                 )
                 self.db_session.add(review)
+                existing_signatures.add(signature)  # Track this review to avoid duplicates in same batch
+                new_reviews_count += 1
             except Exception as e:
                 logger.error(f"Error saving review: {e}")
                 continue
+        
+        if new_reviews_count > 0:
+            logger.info(f"Added {new_reviews_count} new reviews for {hotel.name}")
 

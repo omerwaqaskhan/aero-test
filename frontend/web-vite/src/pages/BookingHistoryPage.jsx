@@ -241,7 +241,20 @@ export default function BookingHistoryPage() {
 
                     <div className="flex flex-col gap-2">
                       <button
-                        onClick={() => navigate(`/hotels/${booking.hotel_id}`)}
+                        onClick={async () => {
+                          try {
+                            // Fetch hotel to get name for slug
+                            const hotelRes = await apiClient.get(`/v1/search-booking/hotels/${booking.hotel_id}`);
+                            if (hotelRes.data?.hotel?.name) {
+                              const slug = hotelRes.data.hotel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                              navigate(`/hotels/${slug}`);
+                            } else {
+                              navigate(`/hotels/${booking.hotel_id}`);
+                            }
+                          } catch {
+                            navigate(`/hotels/${booking.hotel_id}`);
+                          }
+                        }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                       >
                         View Hotel

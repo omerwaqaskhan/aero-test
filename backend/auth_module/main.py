@@ -9,6 +9,7 @@ import sys
 import os
 
 from .api.routers import auth_router, tenant_router, user_router
+from .api.admin_routers import admin_router
 from .api.middleware import (
     TenantMiddleware, AuthMiddleware, RateLimitMiddleware, RequestIDMiddleware
 )
@@ -162,6 +163,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(tenant_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
 
 # Include search-booking router if available
 if SEARCH_BOOKING_AVAILABLE:

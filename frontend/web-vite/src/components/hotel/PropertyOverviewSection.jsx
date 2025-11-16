@@ -11,19 +11,31 @@ const PropertyOverviewSection = ({ hotel, rooms = [], offers = [], onBook, onVie
     : [];
 
   // Prepare room cards for overview (show 3-4 rooms)
+  // Deduplicate by room_type_name to avoid showing duplicate room types
   const previewRooms = useMemo(() => {
     const items = [];
     const usedOfferIds = new Set();
+    const seenRoomNames = new Set(); // Track room types to avoid duplicates
     
     // Match rooms with their specific offers
     for (const room of rooms) {
       if (items.length >= 4) break; // Limit to 4 rooms
+      
+      const roomNameLower = room?.room_type_name?.toLowerCase() || '';
+      
+      // Skip if we've already seen this room type
+      if (roomNameLower && seenRoomNames.has(roomNameLower)) {
+        continue;
+      }
+      
       const matchingOffer = offers.find(offer => offer.room_id === room.id);
       if (matchingOffer) {
         items.push({ room, offer: matchingOffer });
         usedOfferIds.add(matchingOffer.id);
+        if (roomNameLower) seenRoomNames.add(roomNameLower);
       } else {
         items.push({ room, offer: null });
+        if (roomNameLower) seenRoomNames.add(roomNameLower);
       }
     }
     
@@ -34,8 +46,13 @@ const PropertyOverviewSection = ({ hotel, rooms = [], offers = [], onBook, onVie
         if (!usedOfferIds.has(offer.id)) {
           const existingRoom = rooms.find(r => r.id === offer.room_id);
           if (!existingRoom) {
-            items.push({ room: null, offer });
-            usedOfferIds.add(offer.id);
+            // Check if we already have an offer with the same room_type
+            const offerRoomType = offer.room_type?.toLowerCase() || '';
+            if (!offerRoomType || !seenRoomNames.has(offerRoomType)) {
+              items.push({ room: null, offer });
+              usedOfferIds.add(offer.id);
+              if (offerRoomType) seenRoomNames.add(offerRoomType);
+            }
           }
         }
       }
@@ -58,26 +75,6 @@ const PropertyOverviewSection = ({ hotel, rooms = [], offers = [], onBook, onVie
       ) : (
         <div className="mb-6">
           <p className="text-gray-500 italic">Description: Not Available</p>
-        </div>
-      )}
-
-      {/* Amenities */}
-      {displayAmenities.length > 0 ? (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Key Amenities</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {displayAmenities.map((amenity, index) => (
-              <div key={index} className="flex items-center space-x-2 text-gray-700">
-                <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                <span>{amenity}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Key Amenities</h3>
-          <p className="text-gray-500 italic">Not Available</p>
         </div>
       )}
 
@@ -105,6 +102,26 @@ const PropertyOverviewSection = ({ hotel, rooms = [], offers = [], onBook, onVie
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Amenities */}
+      {displayAmenities.length > 0 ? (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Key Amenities</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {displayAmenities.map((amenity, index) => (
+              <div key={index} className="flex items-center space-x-2 text-gray-700">
+                <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                <span>{amenity}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Key Amenities</h3>
+          <p className="text-gray-500 italic">Not Available</p>
         </div>
       )}
       

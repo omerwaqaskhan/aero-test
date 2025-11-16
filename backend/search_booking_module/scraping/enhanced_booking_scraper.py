@@ -79,7 +79,7 @@ class EnhancedBookingScraper(BaseScraper):
     async def _fetch_with_browser(self, url: str, wait_selector: Optional[str] = None) -> tuple[Optional[str], List[Dict[str, Any]]]:
         """Fetch page using headless browser."""
         if not self.browser:
-            return None
+            return None, []
         
         try:
             # Clean URL - remove query parameters that might cause issues
@@ -226,7 +226,7 @@ class EnhancedBookingScraper(BaseScraper):
             logger.error(f"Error fetching with browser {url}: {e}")
             import traceback
             logger.debug(traceback.format_exc())
-            return None
+            return None, []
     
     async def _interact_with_page(self, page) -> None:
         """Interact with page to trigger dynamic content loading."""
@@ -443,13 +443,20 @@ class EnhancedBookingScraper(BaseScraper):
         try:
             # Store intercepted API data
             intercepted_room_data = []
+            html = None
             
             # Fetch hotel detail page
             if self.use_browser:
                 # Fetch with browser and interact to load dynamic content
-                html, api_data = await self._fetch_with_browser_and_intercept(hotel_url, wait_selector=None)
-                if api_data:
-                    intercepted_room_data = api_data
+                result = await self._fetch_with_browser_and_intercept(hotel_url, wait_selector=None)
+                if result:
+                    html, api_data = result
+                    if api_data:
+                        intercepted_room_data = api_data
+                else:
+                    # Fallback to regular fetch if browser fetch fails
+                    logger.warning(f"Browser fetch failed for {hotel_url}, falling back to regular fetch")
+                    html = await self.fetch_page(hotel_url)
             else:
                 html = await self.fetch_page(hotel_url)
             
@@ -457,6 +464,9 @@ class EnhancedBookingScraper(BaseScraper):
                 return None
             
             soup = BeautifulSoup(html, 'html.parser')
+            
+            # Extract hotel website URL before using it
+            hotel_website_url = self._extract_hotel_website(soup)
             
             # Extract rooms - try intercepted API data first
             rooms = []
@@ -517,6 +527,68 @@ class EnhancedBookingScraper(BaseScraper):
                     logger.info(f"Found {len(html_rooms)} rooms in HTML, merged with {len(rooms)} from API")
             
             # Extract all information
+            # For reviews and amenities, try to interact with page if using browser
+            if self.use_browser and hasattr(self, 'browser') and self.browser:
+                # Try to expand reviews section
+                try:
+                    page = await self.browser.new_page()
+                    await page.goto(hotel_url, wait_until='domcontentloaded', timeout=30000)
+                    await page.wait_for_timeout(2000)
+                    
+                    # Try to click "Show more reviews" or expand reviews
+                    review_expand_selectors = [
+                        'button:has-text("Show more reviews")',
+                        'button:has-text("View all reviews")',
+                        '[data-testid*="review"] button',
+                        'a:has-text("Show more")',
+                    ]
+                    for selector in review_expand_selectors:
+                        try:
+                            btn = await page.query_selector(selector)
+                            if btn and await btn.is_visible():
+                                await btn.click()
+                                await page.wait_for_timeout(3000)
+                                break
+                        except:
+                            continue
+                    
+                    # Scroll to reviews section
+                    try:
+                        review_section = await page.query_selector('[data-testid*="review"], section:has-text("review")')
+                        if review_section:
+                            await review_section.scroll_into_view_if_needed()
+                            await page.wait_for_timeout(2000)
+                    except:
+                        pass
+                    
+                    # Try to expand amenities section
+                    try:
+                        amenity_expand_selectors = [
+                            'button:has-text("Show all facilities")',
+                            'button:has-text("View all amenities")',
+                            '[data-testid*="facilit"] button',
+                            'a:has-text("Show all")',
+                        ]
+                        for selector in amenity_expand_selectors:
+                            try:
+                                btn = await page.query_selector(selector)
+                                if btn and await btn.is_visible():
+                                    await btn.click()
+                                    await page.wait_for_timeout(2000)
+                                    break
+                            except:
+                                continue
+                    except:
+                        pass
+                    
+                    # Get updated HTML
+                    html = await page.content()
+                    soup = BeautifulSoup(html, 'html.parser')
+                    await page.close()
+                except Exception as e:
+                    logger.debug(f"Error interacting with page for reviews/amenities: {e}")
+                    # Continue with original soup
+            
             reviews = self._extract_reviews(soup)
             
             # Extract amenities from multiple sources

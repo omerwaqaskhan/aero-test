@@ -105,10 +105,10 @@ const Navigation = () => {
                 {(user?.role === 'super_admin' || user?.role === 'tenant_admin' || user?.user_role === 'super_admin' || user?.user_role === 'tenant_admin') && (
                   <>
                     <a
-                      href="/admin"
+                      href="/admin-portal"
                       onClick={(e) => {
                         e.preventDefault();
-                        navigate('/admin');
+                        navigate('/admin-portal');
                       }}
                       className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors"
                     >
@@ -203,10 +203,10 @@ const Navigation = () => {
                   {(user?.role === 'super_admin' || user?.role === 'tenant_admin' || user?.user_role === 'super_admin' || user?.user_role === 'tenant_admin') && (
                     <>
                       <a
-                        href="/admin"
+                        href="/admin-portal"
                         onClick={(e) => {
                           e.preventDefault();
-                          navigate('/admin');
+                          navigate('/admin-portal');
                           setIsMenuOpen(false);
                         }}
                         className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium transition-colors"

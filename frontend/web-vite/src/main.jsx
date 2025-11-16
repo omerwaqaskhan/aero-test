@@ -5,6 +5,7 @@ import { ToastContainer } from './components/ui/toast.jsx'
 import { AuthProvider } from './contexts/auth-context.jsx'
 import App from './App.jsx'
 import './index.css'
+// Ant Design styles are imported automatically in v5
 
 function AppWithToasts() {
   const { toasts, removeToast } = useToast()

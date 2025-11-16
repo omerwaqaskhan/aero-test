@@ -11,6 +11,7 @@ import HotelsPage from './pages/HotelsPage.jsx'
 import HotelDetailsPage from './pages/HotelDetailsPage.jsx'
 import ClaimHotelPage from './pages/ClaimHotelPage.jsx'
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx'
+import AdminPortalPage from './pages/AdminPortalPage.jsx'
 import HotelOwnerDashboard from './pages/HotelOwnerDashboard.jsx'
 import MonitoringDashboard from './pages/MonitoringDashboard.jsx'
 import BookingHistoryPage from './pages/BookingHistoryPage.jsx'
@@ -30,9 +31,11 @@ export default function App() {
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/hotels" element={<HotelsPage />} />
-      <Route path="/hotels/:hotelId" element={<HotelDetailsPage />} />
-      <Route path="/hotels/:hotelId/claim" element={<ClaimHotelPage />} />
+      <Route path="/hotels/:hotelSlug" element={<HotelDetailsPage />} />
+      <Route path="/hotels/:hotelSlug/:tab" element={<HotelDetailsPage />} />
+      <Route path="/hotels/:hotelSlug/claim" element={<ClaimHotelPage />} />
       <Route path="/admin" element={<AdminDashboardPage />} />
+      <Route path="/admin-portal" element={<AdminPortalPage />} />
       <Route path="/monitoring" element={<MonitoringDashboard />} />
       <Route path="/owner/dashboard" element={<HotelOwnerDashboard />} />
       <Route path="/bookings" element={<BookingHistoryPage />} />

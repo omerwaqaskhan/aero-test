@@ -365,7 +365,19 @@ export default function HotelOwnerDashboard() {
               </div>
               <div className="pt-6 border-t border-gray-200">
                 <button
-                  onClick={() => navigate(`/hotels/${listing.hotel_id}`)}
+                  onClick={async () => {
+                    try {
+                      const hotelRes = await apiClient.get(`/v1/search-booking/hotels/${listing.hotel_id}`);
+                      if (hotelRes.data?.hotel?.name) {
+                        const slug = hotelRes.data.hotel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+                        navigate(`/hotels/${slug}`);
+                      } else {
+                        navigate(`/hotels/${listing.hotel_id}`);
+                      }
+                    } catch {
+                      navigate(`/hotels/${listing.hotel_id}`);
+                    }
+                  }}
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
                   View Hotel Page

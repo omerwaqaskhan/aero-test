@@ -167,7 +167,10 @@ const HotelsPage = () => {
                   <div
                     key={hotel.id}
                     className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer group"
-                    onClick={() => navigate(`/hotels/${hotel.id}`)}
+                    onClick={() => {
+                      const slug = hotel.name ? hotel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '') : hotel.id;
+                      navigate(`/hotels/${slug}`);
+                    }}
                   >
                     {/* Hotel Image */}
                     <div className="relative h-40 bg-gradient-to-br from-blue-100 to-purple-100 overflow-hidden">
@@ -249,7 +252,8 @@ const HotelsPage = () => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/hotels/${hotel.id}`);
+                          const slug = hotel.name ? hotel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '') : hotel.id;
+                          navigate(`/hotels/${slug}`);
                         }}
                         className="w-full bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                       >

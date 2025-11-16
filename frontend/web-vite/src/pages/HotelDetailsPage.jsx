@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import Navigation from '../components/layout/navigation';
 import Footer from '../components/layout/footer';
@@ -13,9 +13,11 @@ import LeadCaptureModal from '../components/revenue/LeadCaptureModal';
 import AdSlot from '../components/revenue/AdSlot';
 import FavoriteButton from '../components/user/FavoriteButton';
 import PriceAlertForm from '../components/user/PriceAlertForm';
+import { createSlug } from '../utils/slug';
 
 const HotelDetailsPage = () => {
-  const { hotelId } = useParams();
+  const { hotelSlug, tab } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [hotel, setHotel] = useState(null);
@@ -24,7 +26,16 @@ const HotelDetailsPage = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('Overview');
+  
+  // Determine active tab from URL or default to 'Overview'
+  const getTabFromUrl = () => {
+    if (tab) {
+      return tab.charAt(0).toUpperCase() + tab.slice(1).toLowerCase();
+    }
+    return 'Overview';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getTabFromUrl());
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [showPriceAlertModal, setShowPriceAlertModal] = useState(false);
   const [selectedDates, setSelectedDates] = useState({
@@ -34,9 +45,17 @@ const HotelDetailsPage = () => {
     rooms: parseInt(searchParams.get('rooms') || '1'),
   });
 
+  // Update active tab when URL changes
+  useEffect(() => {
+    const tabFromUrl = getTabFromUrl();
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tab, location.pathname]);
+
   useEffect(() => {
     fetchHotelDetails();
-  }, [hotelId, selectedDates.checkIn, selectedDates.checkOut]);
+  }, [hotelSlug, selectedDates.checkIn, selectedDates.checkOut]);
 
   const fetchHotelDetails = async () => {
     setLoading(true);
@@ -48,7 +67,7 @@ const HotelDetailsPage = () => {
       params.append('guests', selectedDates.guests);
       params.append('rooms', selectedDates.rooms);
 
-      const response = await apiClient.get(`/v1/search-booking/hotels/${hotelId}?${params.toString()}`);
+      const response = await apiClient.get(`/v1/search-booking/hotels/${hotelSlug}?${params.toString()}`);
       
       if (response.data) {
         // Ensure hotel data is properly set with validated images
@@ -64,11 +83,19 @@ const HotelDetailsPage = () => {
           }
         });
         
-        setHotel({ 
+        const hotelWithSlug = { 
           ...hotelData, 
           images: validImages,
-          review_count: reviews.length 
-        });
+          review_count: reviews.length,
+          slug: createSlug(hotelData.name)
+        };
+        setHotel(hotelWithSlug);
+        
+        // Update URL if it's using ID instead of slug
+        if (hotelSlug !== hotelWithSlug.slug && hotelSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const newPath = tab ? `/hotels/${hotelWithSlug.slug}/${tab.toLowerCase()}` : `/hotels/${hotelWithSlug.slug}`;
+          navigate(newPath + location.search, { replace: true });
+        }
         setRooms(response.data.rooms || []);
         setOffers(response.data.offers || []);
         setReviews(response.data.reviews || []);
@@ -92,9 +119,23 @@ const HotelDetailsPage = () => {
   };
 
   const handleViewMoreRooms = () => {
-    setActiveTab('Rooms');
-    // Scroll to top of rooms section
+    if (hotel?.slug) {
+      navigate(`/hotels/${hotel.slug}/rooms${location.search}`, { replace: true });
+    } else {
+      setActiveTab('Rooms');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    if (hotel?.slug) {
+      const tabSlug = newTab.toLowerCase();
+      const newPath = tabSlug === 'overview' 
+        ? `/hotels/${hotel.slug}`
+        : `/hotels/${hotel.slug}/${tabSlug}`;
+      navigate(newPath + location.search, { replace: true });
+    }
   };
 
   const renderTabContent = () => {
@@ -223,7 +264,7 @@ const HotelDetailsPage = () => {
                 Are you the owner of this hotel?
               </p>
               <Link
-                to={`/hotels/${hotelId}/claim`}
+                to={hotel?.slug ? `/hotels/${hotel.slug}/claim` : `/hotels/${hotelSlug}/claim`}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Claim This Hotel
@@ -239,7 +280,7 @@ const HotelDetailsPage = () => {
         </div>
       </div>
       
-      <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <NavigationTabs activeTab={activeTab} onTabChange={handleTabChange} />
       
       <div className="container mx-auto">
         <div className="flex flex-col lg:flex-row gap-6">
@@ -247,10 +288,7 @@ const HotelDetailsPage = () => {
             {renderTabContent()}
             
             {activeTab === 'Overview' && (
-              <>
-                <RoomListingSection rooms={rooms} offers={offers} onBook={handleBook} />
-                <ReviewsSection hotel={hotel} reviews={reviews} />
-              </>
+              <ReviewsSection hotel={hotel} reviews={reviews} />
             )}
           </div>
           

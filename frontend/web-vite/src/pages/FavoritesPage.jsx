@@ -113,7 +113,10 @@ export default function FavoritesPage() {
               <div
                 key={hotel.id}
                 className="bg-white rounded-lg shadow hover:shadow-md transition-shadow overflow-hidden cursor-pointer group"
-                onClick={() => navigate(`/hotels/${hotel.id}`)}
+                onClick={() => {
+                  const slug = hotel.name ? hotel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '') : hotel.id;
+                  navigate(`/hotels/${slug}`);
+                }}
               >
                 {/* Hotel Image */}
                 <div className="relative h-48 bg-gradient-to-br from-blue-100 to-purple-100 overflow-hidden">
@@ -180,7 +183,8 @@ export default function FavoritesPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/hotels/${hotel.id}`);
+                      const slug = hotel.name ? hotel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '') : hotel.id;
+                      navigate(`/hotels/${slug}`);
                     }}
                     className="w-full bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
                   >
