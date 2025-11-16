@@ -218,6 +218,7 @@ async def check_favorite(
 @router.post("/bookings", response_model=BookingResponse)
 @rate_limit("10/minute")  # Rate limit booking creation
 async def create_booking(
+    http_request: Request,  # Required for rate_limit decorator
     request: CreateBookingRequest,
     db: Session = Depends(get_db),
     current_user: Opt[UserModel] = Depends(get_current_user_optional)

@@ -36,6 +36,8 @@ export default function App() {
       <Route path="/hotels/:hotelSlug/claim" element={<ClaimHotelPage />} />
       <Route path="/admin" element={<AdminDashboardPage />} />
       <Route path="/admin-portal" element={<AdminPortalPage />} />
+      <Route path="/admin-portal/:tab/page/:page" element={<AdminPortalPage />} />
+      <Route path="/admin-portal/:tab" element={<AdminPortalPage />} />
       <Route path="/monitoring" element={<MonitoringDashboard />} />
       <Route path="/owner/dashboard" element={<HotelOwnerDashboard />} />
       <Route path="/bookings" element={<BookingHistoryPage />} />

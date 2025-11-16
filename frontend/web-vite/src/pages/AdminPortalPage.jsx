@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout, Menu, Table, Card, Statistic, Row, Col, Input, Select, Button, Space, Tag, Modal, Descriptions, message } from 'antd';
 import {
   DashboardOutlined,
@@ -25,34 +26,95 @@ const { Search } = Input;
 
 const AdminPortalPage = () => {
   const { user } = useAuth();
+  const { tab, page: urlPage } = useParams();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  // Persist selected menu in localStorage to prevent reset on re-render
-  const [selectedMenu, setSelectedMenu] = useState(() => {
-    const saved = localStorage.getItem('admin_portal_selected_menu');
-    return saved || 'dashboard';
-  });
+  
+  // Get menu from URL or default to dashboard
+  const getMenuFromUrl = () => {
+    if (tab) {
+      // Validate tab is a valid menu item
+      const validMenus = ['dashboard', 'users', 'hotels', 'rooms', 'offers', 'bookings', 'reviews'];
+      return validMenus.includes(tab) ? tab : 'dashboard';
+    }
+    return 'dashboard';
+  };
+  
+  // Get page from URL or default to 1
+  const getPageFromUrl = () => {
+    if (urlPage) {
+      const pageNum = parseInt(urlPage, 10);
+      return isNaN(pageNum) || pageNum < 1 ? 1 : pageNum;
+    }
+    return 1;
+  };
+  
+  const [selectedMenu, setSelectedMenu] = useState(getMenuFromUrl());
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [data, setData] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0 });
+  const [pagination, setPagination] = useState({ 
+    page: getPageFromUrl(), 
+    pageSize: 20, 
+    total: 0 
+  });
   const [filters, setFilters] = useState({});
+  const filtersRef = useRef(filters);
+  const [filtersKey, setFiltersKey] = useState(0); // Force re-render when filters change
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-
-  // Update localStorage when selectedMenu changes
-  useEffect(() => {
-    localStorage.setItem('admin_portal_selected_menu', selectedMenu);
-  }, [selectedMenu]);
-
-  useEffect(() => {
-    if (selectedMenu === 'dashboard') {
-      fetchStats();
+  
+  // Track if we're updating URL from user action (to prevent infinite loops)
+  const isUpdatingFromUserAction = useRef(false);
+  
+  // Update URL when tab or page changes
+  const updateUrl = useCallback((menu, page = 1) => {
+    isUpdatingFromUserAction.current = true;
+    if (menu === 'dashboard') {
+      navigate('/admin-portal', { replace: true });
+    } else if (page === 1) {
+      navigate(`/admin-portal/${menu}`, { replace: true });
     } else {
-      fetchData();
+      navigate(`/admin-portal/${menu}/page/${page}`, { replace: true });
     }
-  }, [selectedMenu, pagination.page, pagination.pageSize, filters]);
+    // Reset flag after navigation
+    setTimeout(() => {
+      isUpdatingFromUserAction.current = false;
+    }, 100);
+  }, [navigate]);
+  
+  // Sync state with URL params when they change (e.g., browser back/forward)
+  useEffect(() => {
+    // Only sync from URL if we're not updating from user action
+    if (isUpdatingFromUserAction.current) {
+      return;
+    }
+    
+    const menuFromUrl = getMenuFromUrl();
+    const pageFromUrl = getPageFromUrl();
+    
+    // Only update if URL params actually changed
+    if (menuFromUrl !== selectedMenu) {
+      setSelectedMenu(menuFromUrl);
+      setPagination(prev => ({ ...prev, page: pageFromUrl }));
+      setFilters({});
+    } else if (pageFromUrl !== pagination.page) {
+      setPagination(prev => ({ ...prev, page: pageFromUrl }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, urlPage]); // Only depend on URL params, not state
 
-  const fetchStats = async () => {
+  // Keep filtersRef in sync with filters state
+  useEffect(() => {
+    filtersRef.current = filters;
+    setFiltersKey(prev => prev + 1); // Increment to trigger useEffect
+  }, [filters]);
+
+  // Update URL when selectedMenu or pagination.page changes (from user actions)
+  // This is handled directly in handleTableChange and menu onClick, so we don't need this useEffect
+  // It would cause infinite loops if we update URL here
+
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiClient.get('/v1/admin/stats');
@@ -62,29 +124,68 @@ const AdminPortalPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async (menu, page, pageSize, filterValues) => {
     setLoading(true);
     try {
       const params = {
-        page: pagination.page,
-        page_size: pagination.pageSize,
-        ...filters,
+        page: page,
+        page_size: pageSize,
+        ...filterValues,
       };
-      const endpoint = getEndpointForMenu(selectedMenu);
+      const endpoint = getEndpointForMenu(menu);
+      console.log('fetchData called:', { menu, endpoint, params, requestedPage: page, requestedPageSize: pageSize });
       const response = await apiClient.get(endpoint, { params });
-      setData(response.data.data.items || []);
-      setPagination(prev => ({
-        ...prev,
-        total: response.data.data.pagination?.total || 0,
-      }));
+      console.log('fetchData response:', {
+        menu,
+        itemsCount: response.data?.data?.items?.length || 0,
+        total: response.data?.data?.pagination?.total || 0,
+        returnedPage: response.data?.data?.pagination?.page,
+        returnedPageSize: response.data?.data?.pagination?.page_size,
+        requestedPage: page,
+        requestedPageSize: pageSize,
+        firstItemId: response.data?.data?.items?.[0]?.id
+      });
+      const newItems = response.data.data.items || [];
+      console.log('Setting new data:', { itemCount: newItems.length, firstItem: newItems[0]?.id });
+      setData(newItems);
+      setPagination(prev => {
+        const newPagination = {
+          ...prev,
+          page: page, // Preserve the requested page
+          pageSize: pageSize, // Preserve the requested pageSize
+          total: response.data.data.pagination?.total || 0,
+        };
+        console.log('Setting new pagination:', newPagination);
+        return newPagination;
+      });
     } catch (error) {
-      message.error(`Failed to fetch ${selectedMenu}`);
+      console.error('fetchData error:', error);
+      message.error(`Failed to fetch ${menu}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (selectedMenu === 'dashboard') {
+      fetchStats();
+    } else {
+      // Only fetch on initial load or when menu/filters change, NOT on pagination change
+      // Pagination changes are handled directly in handleTableChange
+      console.log('useEffect triggering fetchData (initial load or filter change):', {
+        selectedMenu,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        filters: filtersRef.current,
+        filtersKey
+      });
+      fetchData(selectedMenu, pagination.page, pagination.pageSize, filtersRef.current);
+    }
+    // Removed pagination.page and pagination.pageSize from dependencies
+    // to prevent double-fetching when pagination changes (handled in handleTableChange)
+  }, [selectedMenu, filtersKey, fetchStats, fetchData]);
 
   const getEndpointForMenu = (menu) => {
     const endpoints = {
@@ -226,17 +327,48 @@ const AdminPortalPage = () => {
     setDetailModalVisible(true);
   };
 
-  const handleTableChange = (newPagination) => {
+  const handleTableChange = (newPagination, tableFilters, sorter) => {
+    // Ant Design Table onChange receives (pagination, filters, sorter)
+    const newPage = newPagination.current;
+    const newPageSize = newPagination.pageSize;
+    
+    console.log('handleTableChange called:', {
+      newPage,
+      newPageSize,
+      selectedMenu,
+      currentPage: pagination.page,
+      currentPageSize: pagination.pageSize
+    });
+    
+    // Update pagination state immediately
     setPagination(prev => ({
       ...prev,
-      page: newPagination.current,
-      pageSize: newPagination.pageSize,
+      page: newPage,
+      pageSize: newPageSize,
     }));
+    
+    // Update URL (which will trigger useEffect to sync state)
+    updateUrl(selectedMenu, newPage);
+    
+    // Directly fetch data with new pagination (don't wait for useEffect)
+    if (selectedMenu !== 'dashboard') {
+      console.log('Directly fetching data for page:', newPage, 'pageSize:', newPageSize);
+      fetchData(selectedMenu, newPage, newPageSize, filtersRef.current);
+    }
   };
 
   const handleSearch = (value) => {
-    setFilters(prev => ({ ...prev, search: value }));
+    const newFilters = { ...filters, search: value };
+    setFilters(newFilters);
     setPagination(prev => ({ ...prev, page: 1 }));
+    
+    // Update URL to page 1
+    updateUrl(selectedMenu, 1);
+    
+    // Directly fetch data with reset pagination (useEffect will also trigger via filtersKey)
+    if (selectedMenu !== 'dashboard') {
+      fetchData(selectedMenu, 1, pagination.pageSize, newFilters);
+    }
   };
 
   const menuItems = [
@@ -291,6 +423,8 @@ const AdminPortalPage = () => {
               setPagination(prev => ({ ...prev, page: 1 }));
               // Clear filters when switching tabs
               setFilters({});
+              // Update URL (will trigger useEffect to sync)
+              updateUrl(key, 1);
             }}
           />
         </Sider>
@@ -339,10 +473,11 @@ const AdminPortalPage = () => {
                       style={{ width: 300 }}
                       allowClear
                     />
-                    <Button icon={<ReloadOutlined />} onClick={fetchData}>Refresh</Button>
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchData(selectedMenu, pagination.page, pagination.pageSize, filters)}>Refresh</Button>
                   </Space>
                 </div>
                 <Table
+                  key={`${selectedMenu}-table`}
                   columns={getColumnsForMenu(selectedMenu)}
                   dataSource={data}
                   rowKey="id"

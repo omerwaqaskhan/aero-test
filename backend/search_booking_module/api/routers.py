@@ -87,6 +87,7 @@ def get_providers() -> List[BaseProvider]:
 @router.get("/search", response_model=SearchResponse)
 @rate_limit("30/minute")  # Rate limit search endpoint
 async def search_hotels(
+    request: Request,  # Required for rate_limit decorator
     destination: str = Query(..., description="Destination city or location"),
     check_in: date = Query(..., description="Check-in date"),
     check_out: date = Query(..., description="Check-out date"),
@@ -233,6 +234,7 @@ async def search_hotels(
 @router.get("/hotels", response_model=dict)
 @rate_limit("60/minute")  # Rate limit hotels listing
 async def get_all_hotels(
+    request: Request,  # Required for rate_limit decorator
     city: Optional[str] = Query(None, description="Filter by city"),
     country: Optional[str] = Query(None, description="Filter by country"),
     min_stars: Optional[int] = Query(None, ge=0, le=5, description="Minimum star rating"),

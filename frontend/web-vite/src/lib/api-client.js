@@ -73,10 +73,17 @@ class ApiClient {
     }
   }
 
-  async get(endpoint, headers) {
-    return this.request(endpoint, {
+  async get(endpoint, options = {}) {
+    // If options contains params, convert them to query string
+    let url = endpoint;
+    if (options.params) {
+      const queryString = new URLSearchParams(options.params).toString();
+      url = `${endpoint}?${queryString}`;
+    }
+    
+    return this.request(url, {
       method: "GET",
-      headers,
+      headers: options.headers,
     })
   }
 

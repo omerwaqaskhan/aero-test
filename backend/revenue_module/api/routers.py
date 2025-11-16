@@ -306,6 +306,7 @@ async def create_sponsorship(
 @router.post("/ads/impression")
 @rate_limit("1000/hour")  # High limit for impressions (tracking)
 async def record_ad_impression(
+    http_request: Request,  # Required for rate_limit decorator
     request: AdImpressionRequest,
     db: Session = Depends(get_db)
 ):
@@ -322,6 +323,7 @@ async def record_ad_impression(
 @router.post("/ads/click")
 @rate_limit("100/minute")  # Rate limit clicks to prevent fraud
 async def record_ad_click(
+    http_request: Request,  # Required for rate_limit decorator
     request: AdClickRequest,
     db: Session = Depends(get_db)
 ):
