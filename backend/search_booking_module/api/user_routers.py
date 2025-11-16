@@ -14,6 +14,7 @@ from fastapi import Security, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from auth_module.infrastructure.db.models import UserModel
 from auth_module.core.security import JWTManager
+from auth_module.core.rate_limiter import rate_limit
 from search_booking_module.api.user_schemas import (
     FavoriteResponse, CreateFavoriteRequest,
     BookingResponse, CreateBookingRequest, UpdateBookingStatusRequest,
@@ -215,6 +216,7 @@ async def check_favorite(
 
 # Booking Endpoints
 @router.post("/bookings", response_model=BookingResponse)
+@rate_limit("10/minute")  # Rate limit booking creation
 async def create_booking(
     request: CreateBookingRequest,
     db: Session = Depends(get_db),

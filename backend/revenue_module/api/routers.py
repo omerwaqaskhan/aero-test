@@ -25,6 +25,7 @@ from revenue_module.infrastructure.db.models import (
 )
 from revenue_module.api.stripe_routers import router as stripe_router
 from revenue_module.infrastructure.stripe_service import StripeService
+from auth_module.core.rate_limiter import rate_limit
 
 router = APIRouter(prefix="/api/v1/revenue", tags=["revenue"])
 
@@ -303,6 +304,7 @@ async def create_sponsorship(
 
 # Ad revenue endpoints
 @router.post("/ads/impression")
+@rate_limit("1000/hour")  # High limit for impressions (tracking)
 async def record_ad_impression(
     request: AdImpressionRequest,
     db: Session = Depends(get_db)
@@ -318,6 +320,7 @@ async def record_ad_impression(
 
 
 @router.post("/ads/click")
+@rate_limit("100/minute")  # Rate limit clicks to prevent fraud
 async def record_ad_click(
     request: AdClickRequest,
     db: Session = Depends(get_db)

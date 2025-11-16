@@ -1,11 +1,13 @@
 """FastAPI routers for search and booking module."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional, List
 from datetime import date
 
 from auth_module.infrastructure.db.database import get_db
+from auth_module.core.rate_limiter import rate_limit
+from auth_module.core.cache import cached, get_cached, set_cached, cache_key
 from search_booking_module.api.schemas import (
     SearchRequest,
     SearchResponse,
@@ -83,6 +85,7 @@ def get_providers() -> List[BaseProvider]:
 
 
 @router.get("/search", response_model=SearchResponse)
+@rate_limit("30/minute")  # Rate limit search endpoint
 async def search_hotels(
     destination: str = Query(..., description="Destination city or location"),
     check_in: date = Query(..., description="Check-in date"),
@@ -228,6 +231,7 @@ async def search_hotels(
 
 
 @router.get("/hotels", response_model=dict)
+@rate_limit("60/minute")  # Rate limit hotels listing
 async def get_all_hotels(
     city: Optional[str] = Query(None, description="Filter by city"),
     country: Optional[str] = Query(None, description="Filter by country"),
@@ -380,9 +384,13 @@ async def get_hotel_details(
                 hotel_slug = generate_slug(hotel_name)
                 
                 if hotel_slug == cleaned_identifier:
-                    # Found matching hotel, now load it safely
+                    # Found matching hotel, now load it safely with eager loading to avoid N+1
                     try:
-                        hotel = db.query(HotelModel).filter(HotelModel.id == hotel_id).first()
+                        hotel = db.query(HotelModel).options(
+                            joinedload(HotelModel.rooms),
+                            joinedload(HotelModel.offers),
+                            joinedload(HotelModel.reviews)
+                        ).filter(HotelModel.id == hotel_id).first()
                     except (ValueError, AttributeError):
                         # If enum conversion fails, query using raw SQL and create object
                         hotel_row = db.execute(

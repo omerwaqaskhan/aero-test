@@ -1,6 +1,6 @@
 """Main FastAPI application for the authentication module."""
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -16,6 +16,15 @@ from .api.middleware import (
 from .core.config import config
 from .core.container import initialize_container
 from .core.exceptions import AuthError
+from .core.logging_middleware import LoggingMiddleware
+from .core.error_handler import (
+    validation_error_handler,
+    http_exception_handler,
+    database_error_handler,
+    generic_exception_handler
+)
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy.exc import SQLAlchemyError, DatabaseError
 
 # Configure logging
 logging.basicConfig(
@@ -116,13 +125,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add custom middleware
+# Add custom middleware (order matters - last added is first executed)
+app.add_middleware(LoggingMiddleware)  # Log all requests/responses
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(TenantMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
-# Global exception handler
+# Exception handlers (order matters - most specific first)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(DatabaseError, database_error_handler)
+app.add_exception_handler(SQLAlchemyError, database_error_handler)
+
 @app.exception_handler(AuthError)
 async def auth_error_handler(request: Request, exc: AuthError):
     """Handle authentication errors."""
@@ -139,24 +154,7 @@ async def auth_error_handler(request: Request, exc: AuthError):
         }
     )
 
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Handle global exceptions."""
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": {
-                "code": "SYSTEM_ERROR",
-                "message": "Internal server error",
-                "details": {},
-                "timestamp": "2024-01-15T10:30:00Z",  # Would use actual timestamp
-                "request_id": getattr(request.state, "request_id", "unknown")
-            }
-        }
-    )
+app.add_exception_handler(Exception, generic_exception_handler)
 
 
 # Include routers
@@ -203,17 +201,42 @@ async def root():
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {
+    """Enhanced health check endpoint."""
+    from datetime import datetime
+    from sqlalchemy import text
+    from .infrastructure.db.database import engine
+    from .core.cache import cache_available
+    
+    health_status = {
         "status": "healthy",
-        "timestamp": "2024-01-15T10:30:00Z",  # Would use actual timestamp
+        "timestamp": datetime.utcnow().isoformat() + "Z",
         "version": "1.0.0",
-        "services": {
-            "database": "healthy",
-            "redis": "healthy",
-            "email": "healthy"
-        }
+        "services": {}
     }
+    
+    # Check database
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health_status["services"]["database"] = "healthy"
+    except Exception as e:
+        health_status["services"]["database"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check Redis
+    if cache_available:
+        health_status["services"]["redis"] = "healthy"
+    else:
+        health_status["services"]["redis"] = "unavailable"
+        health_status["status"] = "degraded"
+    
+    # Check email (optional)
+    if config.smtp_host:
+        health_status["services"]["email"] = "configured"
+    else:
+        health_status["services"]["email"] = "not_configured"
+    
+    return health_status
 
 
 # Metrics endpoint

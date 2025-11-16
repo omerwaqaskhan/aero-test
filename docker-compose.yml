@@ -7,9 +7,9 @@ services:
     image: postgres:16-alpine
     container_name: luftway-postgres
     environment:
-      POSTGRES_DB: luftway_auth_dev
-      POSTGRES_USER: luftway_user
-      POSTGRES_PASSWORD: luftway_password
+      POSTGRES_DB: ${POSTGRES_DB:-luftway_auth_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-luftway_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-luftway_password}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
       - "5432:5432"
@@ -29,13 +29,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: luftway-redis
-    command: redis-server --appendonly yes --requirepass luftway_redis_password
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-luftway_redis_password}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "luftway_redis_password", "ping"]
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-luftway_redis_password}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,18 +51,23 @@ services:
       dockerfile: Dockerfile
       target: production
     container_name: luftway-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
-      # Database
-      DATABASE_URL: postgresql://luftway_user:luftway_password@postgres:5432/luftway_auth_dev
+      # Database - Use environment variables for security
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-luftway_user}:${POSTGRES_PASSWORD:-luftway_password}@postgres:5432/${POSTGRES_DB:-luftway_auth_dev}}
       DATABASE_POOL_SIZE: 10
       DATABASE_MAX_OVERFLOW: 20
       
-      # Redis
-      REDIS_URL: redis://:luftway_redis_password@redis:6379/0
+      # Redis - Use environment variables for security
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-luftway_redis_password}@redis:6379/0}
       CACHE_TTL: 3600
       
-      # JWT
-      JWT_SECRET_KEY: your-super-secret-jwt-key-change-in-production
+      # JWT - CRITICAL: Must be set in .env file, generate using: openssl rand -hex 32
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-CHANGE_ME_GENERATE_STRONG_KEY_USING_OPENSSL_RAND_HEX_32}
       JWT_ALGORITHM: HS256
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 60
       JWT_REFRESH_TOKEN_EXPIRE_DAYS: 30
@@ -76,7 +81,7 @@ services:
       PASSWORD_REQUIRE_LOWERCASE: false
       PASSWORD_REQUIRE_NUMBERS: false
       PASSWORD_REQUIRE_SPECIAL_CHARS: false
-      PASSWORD_FORBIDDEN_PATTERNS: '["password", "123456", "qwerty", "admin"]'
+      PASSWORD_FORBIDDEN_PATTERNS: '["password", "123456", "qwerty", "admin", "luftway", "luftway123", "luftway_password"]'
       PASSWORD_HISTORY_COUNT: 5
       BCRYPT_ROUNDS: 12
       
@@ -174,11 +179,6 @@ services:
       PROXY_POOL_MIN_SUCCESS_RATE: 0.5
     ports:
       - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
       - ./logs:/app/logs
     healthcheck:

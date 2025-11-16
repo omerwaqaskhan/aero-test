@@ -216,6 +216,7 @@ class SearchService:
             
             # Build search results - show all hotels that match destination/filters
             # Hotels will be shown even without offers for exact dates
+            # Note: offers_by_hotel already loaded efficiently above, no N+1 here
             results = []
             for hotel in hotels:
                 hotel_offers = offers_by_hotel.get(hotel.id, [])

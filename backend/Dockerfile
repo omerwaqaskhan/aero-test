@@ -61,15 +61,21 @@ RUN playwright install chromium || true
 # Copy application code
 COPY auth_module/ ./auth_module/
 COPY search_booking_module/ ./search_booking_module/
+COPY revenue_module/ ./revenue_module/
 COPY pyproject.toml .
 COPY setup.py .
+COPY entrypoint.sh ./entrypoint.sh
+
+# Install PostgreSQL client for pg_isready (before switching to non-root user)
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and set up Playwright cache
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
     && mkdir -p /home/appuser/.cache/ms-playwright \
     && cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ 2>/dev/null || true \
     && chown -R appuser:appuser /app \
-    && chown -R appuser:appuser /home/appuser/.cache/ms-playwright || true
+    && chown -R appuser:appuser /home/appuser/.cache/ms-playwright || true \
+    && chmod +x /app/entrypoint.sh
 USER appuser
 
 # Expose port
@@ -78,6 +84,9 @@ EXPOSE 8000
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
+
+# Set entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Run the application
 CMD ["uvicorn", "auth_module.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
@@ -96,19 +105,28 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy application code
 COPY auth_module/ ./auth_module/
 COPY search_booking_module/ ./search_booking_module/
+COPY revenue_module/ ./revenue_module/
 COPY pyproject.toml .
 COPY setup.py .
+COPY entrypoint.sh ./entrypoint.sh
+
+# Install PostgreSQL client for pg_isready (before switching to non-root user)
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and set up Playwright cache
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
     && mkdir -p /home/appuser/.cache/ms-playwright \
     && cp -r /root/.cache/ms-playwright/* /home/appuser/.cache/ms-playwright/ 2>/dev/null || true \
     && chown -R appuser:appuser /app \
-    && chown -R appuser:appuser /home/appuser/.cache/ms-playwright || true
+    && chown -R appuser:appuser /home/appuser/.cache/ms-playwright || true \
+    && chmod +x /app/entrypoint.sh
 USER appuser
 
 # Expose port
 EXPOSE 8000
+
+# Set entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Run the application in development mode
 CMD ["uvicorn", "auth_module.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
