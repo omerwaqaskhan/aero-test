@@ -13,21 +13,92 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = !!user
 
+  // Helper function to decode JWT token and check expiration
+  const isTokenExpired = (token) => {
+    if (!token) return true
+    
+    try {
+      // JWT tokens have 3 parts separated by dots
+      const parts = token.split('.')
+      if (parts.length !== 3) return true
+      
+      // Decode the payload (second part)
+      const payload = JSON.parse(atob(parts[1]))
+      
+      // Check if token has expiration (exp claim)
+      if (payload.exp) {
+        const expirationTime = payload.exp * 1000 // Convert to milliseconds
+        const currentTime = Date.now()
+        return currentTime >= expirationTime
+      }
+      
+      // If no expiration, assume token is valid (shouldn't happen in production)
+      return false
+    } catch (err) {
+      console.error("Error decoding token:", err)
+      return true // If we can't decode, assume expired
+    }
+  }
+
   useEffect(() => {
     // Check for existing session on mount
     checkAuthStatus()
-  }, [])
+    
+    // Listen for logout events from API client (e.g., 401 responses)
+    const handleLogout = (event) => {
+      const reason = event.detail?.reason || 'session_expired'
+      if (reason === 'session_expired') {
+        setUser(null)
+        error("Session Expired", "Your session has expired. Please log in again.")
+        navigate("/login", { replace: true })
+      }
+    }
+    
+    window.addEventListener('auth:logout', handleLogout)
+    
+    // Check token expiration periodically (every 5 minutes)
+    const expirationCheckInterval = setInterval(() => {
+      const token = localStorage.getItem("access_token")
+      if (token && isTokenExpired(token)) {
+        // Token expired, log out
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
+        localStorage.removeItem("user_data")
+        setUser(null)
+        error("Session Expired", "Your session has expired. Please log in again.")
+        navigate("/login", { replace: true })
+      }
+    }, 5 * 60 * 1000) // Check every 5 minutes
+    
+    return () => {
+      window.removeEventListener('auth:logout', handleLogout)
+      clearInterval(expirationCheckInterval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // error and navigate are stable from hooks, checkAuthStatus and isTokenExpired are defined in component
 
   const checkAuthStatus = async () => {
     try {
       const token = localStorage.getItem("access_token")
       if (token) {
-        // Verify token with backend
-        // For now, we'll just check if token exists
-        // In a real app, you'd validate the token
+        // Check if token is expired
+        if (isTokenExpired(token)) {
+          // Token expired, clear everything
+          localStorage.removeItem("access_token")
+          localStorage.removeItem("refresh_token")
+          localStorage.removeItem("user_data")
+          setUser(null)
+          return
+        }
+        
+        // Token is valid, restore user from localStorage
         const userData = localStorage.getItem("user_data")
         if (userData) {
           setUser(JSON.parse(userData))
+        } else {
+          // No user data, clear token
+          localStorage.removeItem("access_token")
+          localStorage.removeItem("refresh_token")
         }
       }
     } catch (err) {
@@ -35,6 +106,7 @@ export function AuthProvider({ children }) {
       localStorage.removeItem("access_token")
       localStorage.removeItem("refresh_token")
       localStorage.removeItem("user_data")
+      setUser(null)
     } finally {
       setIsLoading(false)
     }

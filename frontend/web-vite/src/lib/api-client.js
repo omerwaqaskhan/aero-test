@@ -47,6 +47,17 @@ class ApiClient {
       }
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+          // Clear tokens and user data
+          localStorage.removeItem("access_token")
+          localStorage.removeItem("refresh_token")
+          localStorage.removeItem("user_data")
+          
+          // Dispatch custom event to notify auth context
+          window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'session_expired' } }))
+        }
+        
         throw new ApiError(
           data.detail || data.message || data.error || "An error occurred",
           response.status,
