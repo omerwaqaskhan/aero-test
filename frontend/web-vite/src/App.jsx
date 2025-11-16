@@ -17,9 +17,13 @@ import MonitoringDashboard from './pages/MonitoringDashboard.jsx'
 import BookingHistoryPage from './pages/BookingHistoryPage.jsx'
 import FavoritesPage from './pages/FavoritesPage.jsx'
 import SavedSearchesPage from './pages/SavedSearchesPage.jsx'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage.jsx'
+import TermsOfServicePage from './pages/TermsOfServicePage.jsx'
+import CookieConsent from './components/ui/CookieConsent.jsx'
 
 export default function App() {
   return (
+    <>
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/home" element={<LandingPage />} />
@@ -43,7 +47,11 @@ export default function App() {
       <Route path="/bookings" element={<BookingHistoryPage />} />
       <Route path="/favorites" element={<FavoritesPage />} />
       <Route path="/saved-searches" element={<SavedSearchesPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms-of-service" element={<TermsOfServicePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <CookieConsent />
+    </>
   )
 }

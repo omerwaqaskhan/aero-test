@@ -10,11 +10,15 @@ import os
 
 from .api.routers import auth_router, tenant_router, user_router
 from .api.admin_routers import admin_router
+from .api.gdpr_routers import router as gdpr_router
+from .api.observability_routers import router as observability_router
+from .api.feature_flag_routers import router as feature_flag_router
 from .api.middleware import (
     TenantMiddleware, AuthMiddleware, RateLimitMiddleware, RequestIDMiddleware
 )
 from .core.config import config
 from .core.container import initialize_container
+from .core.metrics_middleware import MetricsMiddleware
 from .core.exceptions import AuthError
 from .core.logging_middleware import LoggingMiddleware
 from .core.error_handler import (
@@ -157,6 +161,7 @@ app.add_middleware(
 
 # Add custom middleware (order matters - last added is first executed)
 app.add_middleware(LoggingMiddleware)  # Log all requests/responses
+app.add_middleware(MetricsMiddleware)  # Track Prometheus metrics
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(TenantMiddleware)
 app.add_middleware(AuthMiddleware)
@@ -215,6 +220,18 @@ if MONITORING_AVAILABLE:
 if REVENUE_AVAILABLE:
     app.include_router(revenue_router)
     logger.info("Revenue module loaded")
+
+# Include GDPR compliance router
+app.include_router(gdpr_router)
+logger.info("GDPR compliance module loaded")
+
+# Include observability router
+app.include_router(observability_router)
+logger.info("Observability module loaded")
+
+# Include feature flag router
+app.include_router(feature_flag_router)
+logger.info("Feature flags module loaded")
 
 
 # Root endpoint

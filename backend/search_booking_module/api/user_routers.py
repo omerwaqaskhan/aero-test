@@ -343,6 +343,102 @@ async def create_booking(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create booking: {str(e)}")
     
+    # ===== REVENUE GENERATION: Create Lead =====
+    lead_id = None
+    lead_fee = Decimal("0.00")
+    
+    try:
+        # Import LeadService
+        from revenue_module.domain.services import LeadService
+        
+        # Create lead for this booking
+        lead_service = LeadService(db)
+        lead = lead_service.create_lead(
+            hotel_id=request.hotel_id,
+            email=request.guest_email,
+            check_in=request.check_in,
+            check_out=request.check_out,
+            user_id=str(current_user.id) if current_user else None,
+            name=request.guest_name,
+            phone=request.guest_phone,
+            guests=request.guests,
+            rooms=request.rooms,
+            special_requests=getattr(request, 'special_requests', None)
+        )
+        
+        lead_id = str(lead.id)
+        lead_fee = lead.lead_fee
+        
+        # Automatically mark lead as sent to hotel (triggers email)
+        import asyncio
+        try:
+            await lead_service.mark_lead_sent(lead_id)
+        except Exception as email_error:
+            # Log but don't fail if email sending fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to send lead notification email: {email_error}")
+        
+    except ImportError:
+        # Revenue module not available - continue without lead generation
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("Revenue module not available - booking created without lead generation")
+    except Exception as lead_error:
+        # Log lead creation failure but don't fail the booking
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to create lead for booking {booking_id}: {lead_error}")
+    
+    # Update booking metadata with lead information
+    if lead_id:
+        booking_metadata = booking.get("booking_metadata", {})
+        if isinstance(booking_metadata, str):
+            booking_metadata = json.loads(booking_metadata) if booking_metadata else {}
+        booking_metadata["lead_id"] = lead_id
+        booking_metadata["lead_fee"] = str(lead_fee)
+        booking_metadata["revenue_model"] = "lead_generation"
+        
+        # Update booking metadata in database
+        try:
+            db.execute(text("""
+                UPDATE bookings 
+                SET booking_metadata = :metadata, updated_at = NOW()
+                WHERE id = :id
+            """), {
+                "id": booking_id,
+                "metadata": json.dumps(booking_metadata)
+            })
+            db.commit()
+            booking["booking_metadata"] = booking_metadata
+        except Exception as update_error:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to update booking metadata: {update_error}")
+    
+    # ===== SEND BOOKING CONFIRMATION EMAIL =====
+    try:
+        from auth_module.infrastructure.messaging import EmailService
+        
+        email_service = EmailService()
+        await email_service.send_booking_confirmation_email(
+            to_email=request.guest_email,
+            booking_reference=booking_reference,
+            hotel_name=hotel.name,
+            check_in=str(request.check_in),
+            check_out=str(request.check_out),
+            guests=request.guests,
+            rooms=request.rooms,
+            total_price=str(total_price),
+            currency=booking.get("currency", "USD"),
+            guest_name=request.guest_name
+        )
+    except Exception as email_error:
+        # Log but don't fail if email sending fails
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to send booking confirmation email: {email_error}")
+    
     return BookingResponse(
         id=booking["id"],
         user_id=booking["user_id"],
@@ -362,10 +458,9 @@ async def create_booking(
         status=booking["status"],
         provider=booking["provider"],
         provider_booking_id=booking["provider_booking_id"],
-        affiliate_link=booking["affiliate_link"],
         special_requests=booking["special_requests"],
         cancellation_policy=booking["cancellation_policy"],
-        booking_metadata=booking["booking_metadata"],
+        booking_metadata=booking.get("booking_metadata", {}),
         booked_at=booking["booked_at"],
         confirmed_at=booking["confirmed_at"],
         cancelled_at=booking["cancelled_at"],
@@ -416,6 +511,7 @@ async def get_bookings(
             cancelled_at=b.cancelled_at,
             special_requests=b.special_requests,
             cancellation_policy=b.cancellation_policy,
+            booking_metadata=b.booking_metadata,
             created_at=b.created_at,
             updated_at=b.updated_at
         )
@@ -462,6 +558,7 @@ async def get_booking(
         cancelled_at=booking.cancelled_at,
         special_requests=booking.special_requests,
         cancellation_policy=booking.cancellation_policy,
+        booking_metadata=booking.booking_metadata,
         created_at=booking.created_at,
         updated_at=booking.updated_at
     )
@@ -488,6 +585,42 @@ async def update_booking_status(
         booking.cancelled_at = datetime.utcnow()
     elif request.status.value == "confirmed":
         booking.confirmed_at = datetime.utcnow()
+        
+        # ===== COMMISSION TRACKING: Mark lead as converted =====
+        # When booking is confirmed, mark the associated lead as converted and record commission
+        try:
+            # Check if there's a lead associated with this booking
+            booking_metadata = booking.booking_metadata or {}
+            lead_id = booking_metadata.get("lead_id")
+            
+            if lead_id:
+                from revenue_module.domain.services import LeadService
+                
+                lead_service = LeadService(db)
+                # Mark lead as converted and record 10% commission
+                lead_service.mark_lead_converted(
+                    lead_id=lead_id,
+                    booking_value=booking.total_price
+                )
+                
+                # Update booking metadata with commission info
+                commission = booking.total_price * Decimal("0.10")
+                booking_metadata["commission_tracked"] = True
+                booking_metadata["commission_amount"] = str(commission)
+                booking_metadata["converted_at"] = datetime.utcnow().isoformat()
+                booking.booking_metadata = booking_metadata
+                
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Lead {lead_id} marked as converted. Commission: {commission}")
+        except ImportError:
+            # Revenue module not available
+            pass
+        except Exception as commission_error:
+            # Log but don't fail the booking status update
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to track commission for booking {booking_id}: {commission_error}")
     
     db.commit()
     

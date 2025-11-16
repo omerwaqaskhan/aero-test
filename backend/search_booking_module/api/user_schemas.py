@@ -82,6 +82,7 @@ class BookingResponse(BaseModel):
     cancelled_at: Optional[datetime]
     special_requests: Optional[str]
     cancellation_policy: Dict[str, Any]
+    booking_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
     

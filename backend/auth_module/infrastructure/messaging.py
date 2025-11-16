@@ -174,6 +174,122 @@ class EmailService:
         """
         
         return await self.send_email(to_email, subject, html_content, text_content)
+    
+    async def send_booking_confirmation_email(
+        self,
+        to_email: str,
+        booking_reference: str,
+        hotel_name: str,
+        check_in: str,
+        check_out: str,
+        guests: int,
+        rooms: int,
+        total_price: str,
+        currency: str = "USD",
+        guest_name: str = "Guest",
+        tenant_name: str = "Aero Hotels"
+    ) -> bool:
+        """Send booking confirmation email to user."""
+        subject = f"Booking Confirmation - {booking_reference}"
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <h2 style="color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px;">
+                    Booking Confirmation
+                </h2>
+                
+                <p>Dear {guest_name},</p>
+                
+                <p>Thank you for booking with {tenant_name}! Your booking has been received and is being processed.</p>
+                
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #007bff;">Booking Details</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Booking Reference:</strong></td>
+                            <td style="padding: 8px 0;">{booking_reference}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Hotel:</strong></td>
+                            <td style="padding: 8px 0;">{hotel_name}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Check-in:</strong></td>
+                            <td style="padding: 8px 0;">{check_in}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Check-out:</strong></td>
+                            <td style="padding: 8px 0;">{check_out}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Guests:</strong></td>
+                            <td style="padding: 8px 0;">{guests}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;"><strong>Rooms:</strong></td>
+                            <td style="padding: 8px 0;">{rooms}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #007bff;">
+                            <td style="padding: 12px 0;"><strong>Total Price:</strong></td>
+                            <td style="padding: 12px 0; font-size: 18px; color: #007bff;"><strong>{currency} {total_price}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0;">
+                    <h4 style="margin-top: 0; color: #856404;">Next Steps</h4>
+                    <p style="margin: 5px 0;">The hotel will receive your booking request shortly. They will contact you directly to confirm availability and provide payment instructions.</p>
+                    <p style="margin: 5px 0;">Please keep this booking reference for your records: <strong>{booking_reference}</strong></p>
+                </div>
+                
+                <p>If you have any questions or need to make changes to your booking, please contact us with your booking reference.</p>
+                
+                <p style="margin-top: 30px;">
+                    Best regards,<br>
+                    <strong>The {tenant_name} Team</strong>
+                </p>
+                
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">
+                    <p>This is an automated message. Please do not reply to this email.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+        Booking Confirmation
+        
+        Dear {guest_name},
+        
+        Thank you for booking with {tenant_name}! Your booking has been received and is being processed.
+        
+        BOOKING DETAILS:
+        Booking Reference: {booking_reference}
+        Hotel: {hotel_name}
+        Check-in: {check_in}
+        Check-out: {check_out}
+        Guests: {guests}
+        Rooms: {rooms}
+        Total Price: {currency} {total_price}
+        
+        NEXT STEPS:
+        The hotel will receive your booking request shortly. They will contact you directly to confirm availability and provide payment instructions.
+        
+        Please keep this booking reference for your records: {booking_reference}
+        
+        If you have any questions or need to make changes to your booking, please contact us with your booking reference.
+        
+        Best regards,
+        The {tenant_name} Team
+        
+        ---
+        This is an automated message. Please do not reply to this email.
+        """
+        
+        return await self.send_email(to_email, subject, html_content, text_content)
 
 
 class SMSService:
