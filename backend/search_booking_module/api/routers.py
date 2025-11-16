@@ -112,8 +112,35 @@ async def search_hotels(
     
     This endpoint searches for hotels across all configured providers,
     aggregates results, and returns sorted and filtered results.
+    Results are cached for 10 minutes to improve performance.
     """
     try:
+        # Generate cache key from search parameters
+        cache_key_str = cache_key(
+            "search",
+            destination=destination,
+            check_in=str(check_in),
+            check_out=str(check_out),
+            guests=guests,
+            rooms=rooms,
+            min_price=min_price,
+            max_price=max_price,
+            stars=tuple(sorted(stars)) if stars else None,
+            amenities=tuple(sorted(amenities)) if amenities else None,
+            rating_min=rating_min,
+            latitude=latitude,
+            longitude=longitude,
+            radius=radius,
+            sort_by=sort_by.value,
+            sort_order=sort_order.value,
+            page=page,
+            page_size=page_size
+        )
+        
+        # Try to get from cache (10 minutes TTL for search results)
+        cached_result = get_cached(cache_key_str)
+        if cached_result is not None:
+            return SearchResponse(**cached_result)
         # Build search filters
         filters = SearchFilters(
             destination=destination,
@@ -217,13 +244,18 @@ async def search_hotels(
         total = len(search_results)  # In production, get from service
         total_pages = (total + page_size - 1) // page_size if total > 0 else 0
         
-        return SearchResponse(
+        response = SearchResponse(
             results=search_results,
             total=total,
             page=page,
             page_size=page_size,
             total_pages=total_pages
         )
+        
+        # Cache the result (10 minutes TTL for search results)
+        set_cached(cache_key_str, response.dict(), ttl=600)
+        
+        return response
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -322,8 +354,24 @@ async def get_hotel_details(
     
     This endpoint accepts either a hotel ID (UUID) or a slug (hotel name).
     Returns detailed information about a hotel including available rooms, offers, and reviews.
+    Results are cached for 30 minutes to improve performance.
     """
     try:
+        # Generate cache key from hotel identifier and query parameters
+        cache_key_str = cache_key(
+            "hotel_details",
+            hotel_identifier=hotel_identifier,
+            check_in=str(check_in) if check_in else None,
+            check_out=str(check_out) if check_out else None,
+            guests=guests,
+            rooms=rooms
+        )
+        
+        # Try to get from cache (30 minutes TTL for hotel details)
+        cached_result = get_cached(cache_key_str)
+        if cached_result is not None:
+            return HotelDetailsResponse(**cached_result)
+        
         import re
         from sqlalchemy import func
         
@@ -508,7 +556,8 @@ async def get_hotel_details(
         )
         
         # Get rooms for this hotel
-        rooms = db.query(RoomModel).filter(RoomModel.hotel_id == hotel_id).all()
+        # Use hotel.id instead of hotel_id variable to ensure we have the correct ID
+        rooms = db.query(RoomModel).filter(RoomModel.hotel_id == hotel.id).all()
         rooms_response = []
         for room in rooms:
             room_response = RoomResponse(
@@ -525,7 +574,8 @@ async def get_hotel_details(
             rooms_response.append(room_response)
         
         # Get offers for this hotel
-        offers_query = db.query(OfferModel).filter(OfferModel.hotel_id == hotel_id)
+        # Use hotel.id instead of hotel_id variable to ensure we have the correct ID
+        offers_query = db.query(OfferModel).filter(OfferModel.hotel_id == hotel.id)
         
         if check_in and check_out:
             offers_query = offers_query.filter(
@@ -595,12 +645,17 @@ async def get_hotel_details(
             )
             reviews_response.append(review_response)
         
-        return HotelDetailsResponse(
+        response = HotelDetailsResponse(
             hotel=hotel_response,
             rooms=rooms_response,
             offers=offers_response,
             reviews=reviews_response
         )
+        
+        # Cache the result (30 minutes TTL for hotel details)
+        set_cached(cache_key_str, response.dict(), ttl=1800)
+        
+        return response
         
     except HTTPException:
         raise

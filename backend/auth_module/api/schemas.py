@@ -292,32 +292,13 @@ class MetricsResponse(BaseModel):
 
 # Validation helpers
 class PasswordValidator:
-    """Password validation helper."""
+    """Password validation helper - uses PasswordManager from core.security."""
     
     @staticmethod
     def validate_password_strength(password: str) -> Dict[str, Any]:
-        """Validate password strength."""
-        errors = []
-        requirements = {
-            "min_length": 8,
-            "max_length": 128,
-            "require_uppercase": False,
-            "require_lowercase": False,
-            "require_numbers": False,
-            "require_special_chars": False,
-        }
-        
-        if len(password) < requirements["min_length"]:
-            errors.append(f"Password must be at least {requirements['min_length']} characters long")
-        
-        if len(password) > requirements["max_length"]:
-            errors.append(f"Password must be no more than {requirements['max_length']} characters long")
-        
-        return {
-            "is_valid": len(errors) == 0,
-            "errors": errors,
-            "requirements": requirements
-        }
+        """Validate password strength using PasswordManager."""
+        from ..core.security import PasswordManager
+        return PasswordManager.validate_password_strength(password)
 
 
 # Custom validators

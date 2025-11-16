@@ -1,8 +1,8 @@
 """Configuration management for the authentication module."""
 
 import os
-from typing import Dict, List, Optional
-from pydantic import Field
+from typing import Dict, List, Optional, Union
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -26,13 +26,13 @@ class AuthConfig(BaseSettings):
     jwt_issuer: str = Field("luftway-auth", env="JWT_ISSUER")
     jwt_audience: str = Field("luftway-api", env="JWT_AUDIENCE")
     
-    # Password Security
-    password_min_length: int = Field(8, env="PASSWORD_MIN_LENGTH")
+    # Password Security (STRONG REQUIREMENTS)
+    password_min_length: int = Field(10, env="PASSWORD_MIN_LENGTH")
     password_max_length: int = Field(128, env="PASSWORD_MAX_LENGTH")
-    password_require_uppercase: bool = Field(False, env="PASSWORD_REQUIRE_UPPERCASE")
-    password_require_lowercase: bool = Field(False, env="PASSWORD_REQUIRE_LOWERCASE")
-    password_require_numbers: bool = Field(False, env="PASSWORD_REQUIRE_NUMBERS")
-    password_require_special_chars: bool = Field(False, env="PASSWORD_REQUIRE_SPECIAL_CHARS")
+    password_require_uppercase: bool = Field(True, env="PASSWORD_REQUIRE_UPPERCASE")
+    password_require_lowercase: bool = Field(True, env="PASSWORD_REQUIRE_LOWERCASE")
+    password_require_numbers: bool = Field(True, env="PASSWORD_REQUIRE_NUMBERS")
+    password_require_special_chars: bool = Field(True, env="PASSWORD_REQUIRE_SPECIAL_CHARS")
     password_forbidden_patterns: List[str] = Field(
         ["password", "123456", "qwerty", "admin"], 
         env="PASSWORD_FORBIDDEN_PATTERNS"
@@ -82,6 +82,41 @@ class AuthConfig(BaseSettings):
     default_tenant_slug: str = Field("luftway", env="DEFAULT_TENANT_SLUG")
     tenant_slug_pattern: str = Field(r"^[a-z0-9-]+$", env="TENANT_SLUG_PATTERN")
     
+    # CORS Configuration
+    cors_origins: Union[str, List[str]] = Field(
+        default="http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
+        env="CORS_ORIGINS"
+    )
+    
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        """Parse CORS origins from environment variable (comma-separated string or list)."""
+        default_origins = [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173"
+        ]
+        
+        if isinstance(v, list):
+            return v if v else default_origins
+        elif isinstance(v, str):
+            # Parse comma-separated string
+            origins = [origin.strip() for origin in v.split(",") if origin.strip()]
+            return origins if origins else default_origins
+        return default_origins
+    
+    cors_allow_credentials: bool = Field(True, env="CORS_ALLOW_CREDENTIALS")
+    cors_allow_methods: List[str] = Field(
+        default_factory=lambda: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        env="CORS_ALLOW_METHODS"
+    )
+    cors_allow_headers: List[str] = Field(
+        default_factory=lambda: ["*"],
+        env="CORS_ALLOW_HEADERS"
+    )
+    
     # Security Headers
     enable_csrf_protection: bool = Field(False, env="ENABLE_CSRF_PROTECTION")
     enable_hsts: bool = Field(True, env="ENABLE_HSTS")
@@ -91,6 +126,13 @@ class AuthConfig(BaseSettings):
     log_level: str = Field("INFO", env="LOG_LEVEL")
     enable_audit_logging: bool = Field(True, env="ENABLE_AUDIT_LOGGING")
     enable_metrics: bool = Field(True, env="ENABLE_METRICS")
+    
+    # Sentry Error Tracking
+    sentry_dsn: Optional[str] = Field(None, env="SENTRY_DSN")
+    sentry_environment: str = Field("development", env="SENTRY_ENVIRONMENT")
+    sentry_traces_sample_rate: float = Field(1.0, env="SENTRY_TRACES_SAMPLE_RATE")
+    sentry_profiles_sample_rate: float = Field(1.0, env="SENTRY_PROFILES_SAMPLE_RATE")
+    enable_sentry: bool = Field(False, env="ENABLE_SENTRY")
     
     # Feature Flags
     enable_mfa: bool = Field(True, env="ENABLE_MFA")

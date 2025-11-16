@@ -74,13 +74,13 @@ services:
       JWT_ISSUER: luftway-auth
       JWT_AUDIENCE: luftway-api
       
-      # Password Security
-      PASSWORD_MIN_LENGTH: 8
+      # Password Security (STRONG REQUIREMENTS)
+      PASSWORD_MIN_LENGTH: 10
       PASSWORD_MAX_LENGTH: 128
-      PASSWORD_REQUIRE_UPPERCASE: false
-      PASSWORD_REQUIRE_LOWERCASE: false
-      PASSWORD_REQUIRE_NUMBERS: false
-      PASSWORD_REQUIRE_SPECIAL_CHARS: false
+      PASSWORD_REQUIRE_UPPERCASE: true
+      PASSWORD_REQUIRE_LOWERCASE: true
+      PASSWORD_REQUIRE_NUMBERS: true
+      PASSWORD_REQUIRE_SPECIAL_CHARS: true
       PASSWORD_FORBIDDEN_PATTERNS: '["password", "123456", "qwerty", "admin", "luftway", "luftway123", "luftway_password"]'
       PASSWORD_HISTORY_COUNT: 5
       BCRYPT_ROUNDS: 12

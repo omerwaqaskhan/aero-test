@@ -366,6 +366,13 @@ class AuditLogger:
             "details": details or {}
         }
         
-        # In a real implementation, this would write to a secure audit log
-        # For now, we'll just print it (replace with proper logging)
-        print(f"AUDIT: {event}")
+        # Log security event using structured logging
+        import logging
+        audit_logger = logging.getLogger("audit")
+        audit_logger.info(
+            "Security event",
+            extra={
+                "event_type": "security_audit",
+                "data": event
+            }
+        )

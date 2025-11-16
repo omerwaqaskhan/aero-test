@@ -26,7 +26,7 @@ from .core.error_handler import (
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError, DatabaseError
 
-# Configure logging
+# Configure logging first (needed for Sentry initialization)
 logging.basicConfig(
     level=getattr(logging, config.log_level.upper()),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -36,6 +36,34 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# Initialize Sentry for error tracking (if enabled)
+if config.enable_sentry and config.sentry_dsn:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+        
+        sentry_sdk.init(
+            dsn=config.sentry_dsn,
+            environment=config.sentry_environment,
+            traces_sample_rate=config.sentry_traces_sample_rate,
+            profiles_sample_rate=config.sentry_profiles_sample_rate,
+            integrations=[
+                FastApiIntegration(),
+                SqlalchemyIntegration(),
+                LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+            ],
+            release=os.getenv("SENTRY_RELEASE", None),
+            send_default_pii=False,
+            enable_tracing=True,
+        )
+        logger.info(f"Sentry error tracking initialized for environment: {config.sentry_environment}")
+    except ImportError:
+        logger.warning("Sentry SDK not installed. Install with: pip install sentry-sdk[fastapi]")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Sentry: {e}")
 
 # Import search-booking router
 try:
@@ -116,13 +144,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Add CORS middleware - Use secure configuration from environment
+from auth_module.core.config import config
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=config.cors_origins,  # Secure: specific origins only
+    allow_credentials=config.cors_allow_credentials,
+    allow_methods=config.cors_allow_methods,
+    allow_headers=config.cors_allow_headers,
 )
 
 # Add custom middleware (order matters - last added is first executed)

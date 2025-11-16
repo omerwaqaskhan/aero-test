@@ -14,8 +14,11 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const featuredDestinations = [
     { id: 1, name: 'Paris', country: 'France', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1600&auto=format&fit=crop', price: '€89', rating: 4.8, reviews: 2847, hotels: 1247, discount: 26, description: 'Romance, art, and culture at every corner.' },
-    { id: 2, name: 'Tokyo', country: 'Japan', image: 'https://images.unsplash.com/photo-1549692520-acc6669e2f0c?q=80&w=1600&auto=format&fit=crop', price: '¥12,500', rating: 4.9, reviews: 1923, hotels: 892, discount: 17, description: 'Tradition meets innovation in Japan’s capital.' },
+    { id: 2, name: 'Tokyo', country: 'Japan', image: 'https://images.unsplash.com/photo-1549692520-acc6669e2f0c?q=80&w=1600&auto=format&fit=crop', price: '¥12,500', rating: 4.9, reviews: 1923, hotels: 892, discount: 17, description: "Tradition meets innovation in Japan's capital." },
     { id: 3, name: 'New York', country: 'USA', image: 'https://images.unsplash.com/photo-1468436139062-f60a71c5c892?q=80&w=1600&auto=format&fit=crop', price: '$156', rating: 4.7, reviews: 4521, hotels: 2156, discount: 22, description: 'Iconic skyline, endless things to do.' },
+    { id: 4, name: 'London', country: 'UK', image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=1600&auto=format&fit=crop', price: '£98', rating: 4.6, reviews: 3245, hotels: 1834, discount: 25, description: 'Rich history meets modern sophistication in this vibrant capital city.' },
+    { id: 5, name: 'Dubai', country: 'UAE', image: 'https://images.unsplash.com/photo-1512453979798-5e66bb9276e4?q=80&w=1600&auto=format&fit=crop', price: 'AED 450', rating: 4.8, reviews: 1876, hotels: 567, discount: 25, description: 'Luxury and innovation combine in this futuristic desert metropolis.' },
+    { id: 6, name: 'Barcelona', country: 'Spain', image: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?q=80&w=1600&auto=format&fit=crop', price: '€75', rating: 4.5, reviews: 2134, hotels: 789, discount: 21, description: 'Art, architecture, and Mediterranean charm in one beautiful city.' },
   ];
 
   const testimonials = [

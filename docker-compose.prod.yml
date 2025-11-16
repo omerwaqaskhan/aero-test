@@ -1,5 +1,8 @@
-# Production configuration for WindWays Platform
+# Production configuration for LuftWay Platform
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# 
+# IMPORTANT: Set all environment variables in .env.prod file before deployment
+# Never commit .env.prod to version control
 
 services:
   # Backend production overrides
@@ -7,7 +10,14 @@ services:
     environment:
       LOG_LEVEL: WARNING
       ENABLE_DEBUG_MODE: false
-      # Override with production secrets
+      SENTRY_ENVIRONMENT: production
+      ENABLE_SENTRY: ${ENABLE_SENTRY:-true}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: 0.1
+      SENTRY_PROFILES_SAMPLE_RATE: 0.1
+      # CORS - Production domains only
+      CORS_ORIGINS: ${CORS_ORIGINS:-"https://luftway.com,https://www.luftway.com,https://admin.luftway.com"}
+      # Override with production secrets (from .env.prod)
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
@@ -57,6 +67,7 @@ services:
   # PostgreSQL production overrides
   postgres:
     environment:
+      POSTGRES_DB: ${POSTGRES_DB:-luftway_auth_prod}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     deploy:
       resources:

@@ -13,6 +13,33 @@ from search_booking_module.api.routers import router as search_booking_router
 from search_booking_module.api.monitoring_routers import router as monitoring_router
 from search_booking_module.scraping.scheduler import start_scheduler, stop_scheduler
 
+# Initialize Sentry for error tracking (if enabled)
+sentry_dsn = os.getenv("SENTRY_DSN")
+sentry_enabled = os.getenv("ENABLE_SENTRY", "false").lower() == "true"
+sentry_environment = os.getenv("SENTRY_ENVIRONMENT", "development")
+
+if sentry_enabled and sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+    
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        environment=sentry_environment,
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "1.0")),
+        profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "1.0")),
+        integrations=[
+            FastApiIntegration(),
+            SqlalchemyIntegration(),
+            LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+        ],
+        release=os.getenv("SENTRY_RELEASE", None),
+        send_default_pii=False,
+        enable_tracing=True,
+    )
+    logger.info(f"Sentry error tracking initialized for environment: {sentry_environment}")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -27,12 +54,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - Use secure configuration
+import os
+from typing import List
+
+# Parse CORS origins from environment variable (comma-separated) or use defaults
+cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173")
+cors_origins: List[str] = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify allowed origins
+    allow_origins=cors_origins,  # Secure: specific origins only
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 

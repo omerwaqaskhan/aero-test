@@ -306,16 +306,16 @@ async def create_sponsorship(
 @router.post("/ads/impression")
 @rate_limit("1000/hour")  # High limit for impressions (tracking)
 async def record_ad_impression(
-    http_request: Request,  # Required for rate_limit decorator
-    request: AdImpressionRequest,
+    request: Request,  # Required for rate_limit decorator (must be named 'request')
+    body: AdImpressionRequest,  # Request body (renamed to avoid conflict)
     db: Session = Depends(get_db)
 ):
     """Record ad impression."""
     service = AdRevenueService(db)
     service.record_impression(
-        ad_slot=request.ad_slot,
-        page_type=request.page_type,
-        revenue=request.revenue
+        ad_slot=body.ad_slot,
+        page_type=body.page_type,
+        revenue=body.revenue
     )
     return {"message": "Impression recorded"}
 
@@ -323,16 +323,16 @@ async def record_ad_impression(
 @router.post("/ads/click")
 @rate_limit("100/minute")  # Rate limit clicks to prevent fraud
 async def record_ad_click(
-    http_request: Request,  # Required for rate_limit decorator
-    request: AdClickRequest,
+    request: Request,  # Required for rate_limit decorator (must be named 'request')
+    body: AdClickRequest,  # Request body (renamed to avoid conflict)
     db: Session = Depends(get_db)
 ):
     """Record ad click."""
     service = AdRevenueService(db)
     service.record_click(
-        ad_slot=request.ad_slot,
-        page_type=request.page_type,
-        revenue=request.revenue
+        ad_slot=body.ad_slot,
+        page_type=body.page_type,
+        revenue=body.revenue
     )
     return {"message": "Click recorded"}
 
