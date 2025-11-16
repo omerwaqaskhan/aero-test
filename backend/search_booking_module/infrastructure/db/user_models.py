@@ -32,7 +32,7 @@ class FavoriteModel(Base):
     __tablename__ = "favorites"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=False), nullable=False, index=True)  # No FK constraint - references users table in auth_module
     hotel_id = Column(UUID(as_uuid=False), ForeignKey("hotels.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     
@@ -53,7 +53,7 @@ class BookingModel(Base):
     __tablename__ = "bookings"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=False), nullable=True, index=True)  # No FK constraint - references users table in auth_module
     hotel_id = Column(UUID(as_uuid=False), ForeignKey("hotels.id", ondelete="CASCADE"), nullable=False, index=True)
     offer_id = Column(UUID(as_uuid=False), ForeignKey("offers.id", ondelete="SET NULL"), nullable=True, index=True)
     
@@ -101,7 +101,7 @@ class PriceAlertModel(Base):
     __tablename__ = "price_alerts"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=False), nullable=False, index=True)  # No FK constraint - references users table in auth_module
     hotel_id = Column(UUID(as_uuid=False), ForeignKey("hotels.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Alert criteria
@@ -135,7 +135,7 @@ class SavedSearchModel(Base):
     __tablename__ = "saved_searches"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=False), nullable=False, index=True)  # No FK constraint - references users table in auth_module
     
     # Search parameters - stored as JSONB in search_query column
     search_query = Column(JSON, nullable=False, default=dict)  # Contains destination, check_in, check_out, guests, rooms, filters
@@ -199,7 +199,7 @@ class UserReviewModel(Base):
     __tablename__ = "user_reviews"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=False), nullable=True, index=True)  # No FK constraint - references users table in auth_module
     hotel_id = Column(UUID(as_uuid=False), ForeignKey("hotels.id", ondelete="CASCADE"), nullable=False, index=True)
     booking_id = Column(UUID(as_uuid=False), ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True, index=True)
     

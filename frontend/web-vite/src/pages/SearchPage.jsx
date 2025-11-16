@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/auth-context';
 import { Bookmark } from 'lucide-react';
 import { Search, Map, List, Filter, X, MapPin, Calendar, Users } from 'lucide-react';
 import AdSlot from '../components/revenue/AdSlot';
+import { ToastContainer } from '../components/ui/Toast';
 
 export default function SearchPage() {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ export default function SearchPage() {
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [savingSearch, setSavingSearch] = useState(false);
+  const [toasts, setToasts] = useState([]);
   const [filters, setFilters] = useState({
     minPrice: null,
     maxPrice: null,
@@ -25,6 +27,16 @@ export default function SearchPage() {
     amenities: [],
     ratingMin: null
   });
+
+  // Toast helper functions
+  const addToast = (toast) => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { ...toast, id }]);
+  };
+
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
 
   // Get search params from URL
   const destination = searchParams.get('destination') || '';
@@ -179,21 +191,58 @@ export default function SearchPage() {
       if (filters.amenities.length > 0) searchFilters.amenities = filters.amenities;
       if (filters.ratingMin) searchFilters.rating_min = filters.ratingMin;
 
-      await apiClient.post('/v1/user/saved-searches', {
-        destination: destination,
-        check_in: checkIn || null,
-        check_out: checkOut || null,
-        guests: guests,
-        rooms: rooms,
-        filters: searchFilters,
-        name: `${destination} - ${checkIn} to ${checkOut}`,
-        notification_enabled: false,
-      });
+      // Generate a meaningful name
+      let searchName = destination || 'Search';
+      if (checkIn && checkOut) {
+        searchName = `${destination} - ${checkIn} to ${checkOut}`;
+      } else if (checkIn) {
+        searchName = `${destination} - ${checkIn}`;
+      }
 
-      alert('Search saved successfully!');
+      const payload = {
+        destination: destination || '',
+        guests: guests || 1,
+        rooms: rooms || 1,
+        filters: searchFilters,
+        name: searchName,
+        notification_enabled: false,
+      };
+
+      // Only include dates if they're valid and not empty
+      if (checkIn && typeof checkIn === 'string' && checkIn.trim() !== '') {
+        payload.check_in = checkIn.trim();
+      } else if (checkIn && checkIn !== null && checkIn !== '') {
+        payload.check_in = checkIn;
+      }
+      if (checkOut && typeof checkOut === 'string' && checkOut.trim() !== '') {
+        payload.check_out = checkOut.trim();
+      } else if (checkOut && checkOut !== null && checkOut !== '') {
+        payload.check_out = checkOut;
+      }
+
+      const response = await apiClient.post('/v1/user/saved-searches', payload);
+
+      // Check if it was an update (has created_at different from updated_at) or new save
+      const isUpdate = response.data?.updated_at && response.data?.created_at && 
+                       response.data.updated_at !== response.data.created_at;
+
+      addToast({
+        type: 'success',
+        title: isUpdate ? 'Search Updated!' : 'Search Saved!',
+        description: isUpdate 
+          ? `Your saved search for "${destination}" has been updated.`
+          : `Your search for "${destination}" has been saved successfully.`,
+        duration: 4000
+      });
     } catch (err) {
       console.error('Error saving search:', err);
-      alert('Failed to save search. Please try again.');
+      const errorMessage = err?.details?.detail || err?.message || 'Failed to save search. Please try again.';
+      addToast({
+        type: 'error',
+        title: 'Failed to Save Search',
+        description: errorMessage,
+        duration: 5000
+      });
     } finally {
       setSavingSearch(false);
     }
@@ -201,6 +250,7 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <Navigation />
       
       {/* Compact Search Bar */}

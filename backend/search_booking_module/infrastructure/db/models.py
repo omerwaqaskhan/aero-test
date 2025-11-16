@@ -99,7 +99,7 @@ class BookingClickModel(Base):
     __tablename__ = "bookings_clicks"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(UUID(as_uuid=False), nullable=True, index=True)  # No FK constraint - references users table in auth_module
     offer_id = Column(UUID(as_uuid=False), ForeignKey("offers.id", ondelete="CASCADE"), nullable=False, index=True)
     provider = Column(SQLEnum(Provider), nullable=False, index=True)
     affiliate_link = Column(Text, nullable=False)

@@ -751,42 +751,140 @@ async def create_saved_search(
     current_user: UserModel = Depends(get_current_user)
 ):
     """Save a search."""
-    # Store search parameters in search_query JSONB
-    search_query = {
-        'destination': request.destination,
-        'check_in': request.check_in.isoformat() if request.check_in else None,
-        'check_out': request.check_out.isoformat() if request.check_out else None,
-        'guests': request.guests,
-        'rooms': request.rooms,
-        'filters': request.filters
-    }
-    
-    saved_search = SavedSearchModel(
-        user_id=str(current_user.id),
-        search_query=search_query,
-        name=request.name,
-        notification_enabled=request.notification_enabled
-    )
-    
-    db.add(saved_search)
-    db.commit()
-    db.refresh(saved_search)
-    
-    return SavedSearchResponse(
-        id=saved_search.id,
-        user_id=saved_search.user_id,
-        destination=saved_search.destination,
-        check_in=saved_search.check_in,
-        check_out=saved_search.check_out,
-        guests=saved_search.guests,
-        rooms=saved_search.rooms,
-        filters=saved_search.filters,
-        name=saved_search.name,
-        notification_enabled=saved_search.notification_enabled,
-        created_at=saved_search.created_at,
-        updated_at=saved_search.updated_at,
-        last_searched_at=saved_search.last_searched_at
-    )
+    try:
+        # Validate destination
+        if not request.destination or not request.destination.strip():
+            raise HTTPException(status_code=400, detail="Destination is required")
+        
+        # Handle dates - convert empty strings to None, ensure they're date objects
+        check_in_date = None
+        check_out_date = None
+        
+        if request.check_in:
+            if isinstance(request.check_in, str):
+                if request.check_in.strip():
+                    from datetime import datetime
+                    try:
+                        check_in_date = datetime.fromisoformat(request.check_in.split('T')[0]).date()
+                    except (ValueError, AttributeError):
+                        check_in_date = None
+            else:
+                check_in_date = request.check_in
+        
+        if request.check_out:
+            if isinstance(request.check_out, str):
+                if request.check_out.strip():
+                    from datetime import datetime
+                    try:
+                        check_out_date = datetime.fromisoformat(request.check_out.split('T')[0]).date()
+                    except (ValueError, AttributeError):
+                        check_out_date = None
+            else:
+                check_out_date = request.check_out
+        
+        # Store search parameters in search_query JSONB
+        search_query = {
+            'destination': request.destination.strip(),
+            'check_in': check_in_date.isoformat() if check_in_date else None,
+            'check_out': check_out_date.isoformat() if check_out_date else None,
+            'guests': request.guests or 1,
+            'rooms': request.rooms or 1,
+            'filters': request.filters or {}
+        }
+        
+        # Validate guests and rooms ranges
+        if search_query['guests'] < 1 or search_query['guests'] > 10:
+            search_query['guests'] = 1
+        if search_query['rooms'] < 1 or search_query['rooms'] > 5:
+            search_query['rooms'] = 1
+        
+        # Check for duplicate searches - compare key fields
+        from sqlalchemy import and_
+        existing_searches = db.query(SavedSearchModel).filter(
+            SavedSearchModel.user_id == str(current_user.id)
+        ).all()
+        
+        for existing in existing_searches:
+            if isinstance(existing.search_query, dict):
+                # Compare destination, dates, guests, and rooms
+                if (existing.search_query.get('destination', '').lower().strip() == search_query['destination'].lower().strip() and
+                    existing.search_query.get('check_in') == search_query['check_in'] and
+                    existing.search_query.get('check_out') == search_query['check_out'] and
+                    existing.search_query.get('guests') == search_query['guests'] and
+                    existing.search_query.get('rooms') == search_query['rooms']):
+                    
+                    # Update the existing search instead of creating duplicate
+                    existing.search_query = search_query
+                    existing.name = request.name
+                    existing.notification_enabled = request.notification_enabled or False
+                    existing.updated_at = datetime.utcnow()
+                    
+                    db.commit()
+                    db.refresh(existing)
+                    
+                    # Return the updated search
+                    return SavedSearchResponse(
+                        id=existing.id,
+                        user_id=existing.user_id,
+                        destination=existing.destination or '',
+                        check_in=existing.check_in,
+                        check_out=existing.check_out,
+                        guests=existing.guests or 1,
+                        rooms=existing.rooms or 1,
+                        filters=existing.filters or {},
+                        name=existing.name,
+                        notification_enabled=existing.notification_enabled,
+                        created_at=existing.created_at,
+                        updated_at=existing.updated_at,
+                        last_searched_at=None
+                    )
+        
+        # No duplicate found, create new search
+        saved_search = SavedSearchModel(
+            user_id=str(current_user.id),
+            search_query=search_query,
+            name=request.name,
+            notification_enabled=request.notification_enabled or False
+        )
+        
+        db.add(saved_search)
+        db.commit()
+        db.refresh(saved_search)
+        
+        # Parse last_searched_at from search_query if it exists
+        last_searched_at = None
+        if isinstance(saved_search.search_query, dict) and saved_search.search_query.get('last_searched_at'):
+            from datetime import datetime
+            last_searched_val = saved_search.search_query['last_searched_at']
+            if isinstance(last_searched_val, str):
+                try:
+                    last_searched_at = datetime.fromisoformat(last_searched_val.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    last_searched_at = None
+            elif isinstance(last_searched_val, datetime):
+                last_searched_at = last_searched_val
+        
+        return SavedSearchResponse(
+            id=saved_search.id,
+            user_id=saved_search.user_id,
+            destination=saved_search.destination or '',
+            check_in=saved_search.check_in,
+            check_out=saved_search.check_out,
+            guests=saved_search.guests or 1,
+            rooms=saved_search.rooms or 1,
+            filters=saved_search.filters or {},
+            name=saved_search.name,
+            notification_enabled=saved_search.notification_enabled,
+            created_at=saved_search.created_at,
+            updated_at=saved_search.updated_at,
+            last_searched_at=last_searched_at
+        )
+    except Exception as e:
+        db.rollback()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error creating saved search: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to save search: {str(e)}")
 
 
 @router.get("/saved-searches", response_model=List[SavedSearchResponse])
