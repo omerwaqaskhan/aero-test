@@ -1,7 +1,7 @@
 """Remove foreign key constraints to users table
 
-Revision ID: 0004
-Revises: 0003
+Revision ID: 0005_remove_user_fk_constraints
+Revises: 0004_add_performance_indices
 Create Date: 2025-11-16 20:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '0004'
-down_revision = '0003'
+revision = '0005_remove_user_fk_constraints'
+down_revision = '0004_add_performance_indices'
 branch_labels = None
 depends_on = None
 
