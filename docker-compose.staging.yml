@@ -1,0 +1,92 @@
+# Staging Environment Overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+
+services:
+  backend:
+    environment:
+      LOG_LEVEL: INFO
+      ENABLE_DEBUG_MODE: false
+      SENTRY_ENVIRONMENT: staging
+      ENABLE_SENTRY: ${ENABLE_SENTRY:-true}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: 0.5
+      # CORS - Staging domain
+      CORS_ORIGINS: ${CORS_ORIGINS:-"https://staging.luftway.com,https://staging-api.luftway.com"}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  frontend:
+    build:
+      target: production
+    environment:
+      NODE_ENV: production
+      VITE_API_URL: ${VITE_API_URL:-https://staging-api.luftway.com}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.125'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  postgres:
+    environment:
+      POSTGRES_DB: luftway_auth_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_ME_STRONG_PASSWORD_STAGING}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+
+  redis:
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-CHANGE_ME_STRONG_REDIS_PASSWORD_STAGING}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.125'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    volumes:
+      - redis_staging_data:/data
+
+volumes:
+  postgres_staging_data:
+  redis_staging_data:
+

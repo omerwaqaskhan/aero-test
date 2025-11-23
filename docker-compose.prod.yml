@@ -1,0 +1,284 @@
+# LuftWay Platform - Production Docker Compose Configuration
+# For deployment on DigitalOcean Droplet
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: luftway-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-luftway_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-luftway_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-luftway_user} -d ${POSTGRES_DB:-luftway_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: luftway-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # LuftWay Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: luftway-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_POOL_SIZE: 20
+      DATABASE_MAX_OVERFLOW: 40
+      
+      # Redis
+      REDIS_URL: ${REDIS_URL}
+      CACHE_TTL: 3600
+      
+      # JWT - MUST be set in .env
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 30
+      JWT_ISSUER: luftway-auth
+      JWT_AUDIENCE: luftway-api
+      
+      # Password Security
+      PASSWORD_MIN_LENGTH: 10
+      PASSWORD_MAX_LENGTH: 128
+      PASSWORD_REQUIRE_UPPERCASE: true
+      PASSWORD_REQUIRE_LOWERCASE: true
+      PASSWORD_REQUIRE_NUMBERS: true
+      PASSWORD_REQUIRE_SPECIAL_CHARS: true
+      PASSWORD_FORBIDDEN_PATTERNS: '["password", "123456", "qwerty", "admin", "luftway"]'
+      PASSWORD_HISTORY_COUNT: 5
+      BCRYPT_ROUNDS: 12
+      
+      # Rate Limiting (stricter in production)
+      RATE_LIMIT_LOGIN: 5/minute
+      RATE_LIMIT_REGISTER: 3/hour
+      RATE_LIMIT_FORGOT_PASSWORD: 3/hour
+      RATE_LIMIT_MFA_VERIFY: 10/minute
+      RATE_LIMIT_REFRESH_TOKEN: 20/minute
+      RATE_LIMIT_TENANT_CREATION: 5/hour
+      
+      # Account Lockout
+      MAX_FAILED_LOGIN_ATTEMPTS: 5
+      LOCKOUT_DURATION_MINUTES: 30
+      PROGRESSIVE_DELAY_ENABLED: true
+      
+      # Email Configuration
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@luftway.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-LuftWay}
+      
+      # SMS Configuration (optional)
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      SMS_API_SECRET: ${SMS_API_SECRET:-}
+      
+      # OAuth Configuration (optional)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
+      
+      # Tenant Configuration
+      TENANT_RESOLUTION_STRATEGY: subdomain
+      DEFAULT_TENANT_SLUG: luftway
+      TENANT_SLUG_PATTERN: '^[a-z0-9-]+$'
+      
+      # Security Headers
+      ENABLE_CSRF_PROTECTION: true
+      ENABLE_HSTS: true
+      ENABLE_CSP: true
+      
+      # Monitoring & Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENABLE_AUDIT_LOGGING: true
+      ENABLE_METRICS: true
+      
+      # Feature Flags
+      ENABLE_MFA: ${ENABLE_MFA:-true}
+      ENABLE_SOCIAL_LOGIN: ${ENABLE_SOCIAL_LOGIN:-false}
+      ENABLE_PASSWORD_RESET: true
+      ENABLE_USER_REGISTRATION: true
+      ENABLE_TENANT_CREATION: false
+      
+      # Scraping Configuration
+      SCRAPER_RATE_LIMIT: 2.0
+      SCRAPER_MAX_CONCURRENT: 5
+      SCRAPER_MAX_RETRIES: 3
+      SCRAPER_TIMEOUT: 30
+      SCRAPER_PROXIES: ${SCRAPER_PROXIES:-}
+      
+      # Monitoring Configuration
+      MONITORING_RETENTION_HOURS: 168
+      MONITORING_SUCCESS_RATE_MIN: 0.8
+      MONITORING_RESPONSE_TIME_MAX: 10.0
+      MONITORING_ERROR_RATE_MAX: 0.2
+      MONITORING_CONSECUTIVE_FAILURES_MAX: 5
+      
+      # Alerting Configuration
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_EMAIL_ENABLED: ${ALERT_EMAIL_ENABLED:-false}
+      ALERT_MAX_ALERTS: 1000
+      
+      # Price Checking Configuration
+      PRICE_CHECK_ENABLED: ${PRICE_CHECK_ENABLED:-true}
+      PRICE_CHECK_INTERVAL_HOURS: 6
+      PRICE_CHECK_MAX_CONCURRENT: 10
+      PRICE_CHECK_MAX_AGE_HOURS: 24
+      
+      # Proxy Pool Configuration
+      PROXY_POOL_HEALTH_CHECK_INTERVAL: 300
+      PROXY_POOL_MAX_CONSECUTIVE_FAILURES: 3
+      PROXY_POOL_MIN_SUCCESS_RATE: 0.5
+      
+      # Environment
+      ENVIRONMENT: production
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # LuftWay Frontend
+  frontend:
+    build:
+      context: ./frontend/web-vite
+      dockerfile: Dockerfile
+      target: production
+    container_name: luftway-frontend
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-https://www.luftway.com/api}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Nginx Reverse Proxy with SSL
+  nginx:
+    image: nginx:alpine
+    container_name: luftway-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# Custom network for service communication
+networks:
+  luftway-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

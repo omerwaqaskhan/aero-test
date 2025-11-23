@@ -1,0 +1,273 @@
+# LuftWay Platform - Docker Compose Configuration
+# Using latest Docker Compose specification (no version field needed)
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: luftway-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-luftway_auth_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-luftway_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-luftway_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ../backups/postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luftway_user -d luftway_auth_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: luftway-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-luftway_redis_password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD:-luftway_redis_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+
+  # LuftWay Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: luftway-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database - Use environment variables for security
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-luftway_user}:${POSTGRES_PASSWORD:-luftway_password}@postgres:5432/${POSTGRES_DB:-luftway_auth_dev}}
+      DATABASE_POOL_SIZE: 10
+      DATABASE_MAX_OVERFLOW: 20
+      
+      # Redis - Use environment variables for security
+      REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-luftway_redis_password}@redis:6379/0}
+      CACHE_TTL: 3600
+      
+      # JWT - CRITICAL: Must be set in .env file, generate using: openssl rand -hex 32
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-CHANGE_ME_GENERATE_STRONG_KEY_USING_OPENSSL_RAND_HEX_32}
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 30
+      JWT_ISSUER: luftway-auth
+      JWT_AUDIENCE: luftway-api
+      
+      # Password Security (STRONG REQUIREMENTS)
+      PASSWORD_MIN_LENGTH: 10
+      PASSWORD_MAX_LENGTH: 128
+      PASSWORD_REQUIRE_UPPERCASE: true
+      PASSWORD_REQUIRE_LOWERCASE: true
+      PASSWORD_REQUIRE_NUMBERS: true
+      PASSWORD_REQUIRE_SPECIAL_CHARS: true
+      PASSWORD_FORBIDDEN_PATTERNS: '["password", "123456", "qwerty", "admin", "luftway", "luftway123", "luftway_password"]'
+      PASSWORD_HISTORY_COUNT: 5
+      BCRYPT_ROUNDS: 12
+      
+      # Rate Limiting
+      RATE_LIMIT_LOGIN: 5/minute
+      RATE_LIMIT_REGISTER: 3/hour
+      RATE_LIMIT_FORGOT_PASSWORD: 3/hour
+      RATE_LIMIT_MFA_VERIFY: 10/minute
+      RATE_LIMIT_REFRESH_TOKEN: 20/minute
+      RATE_LIMIT_TENANT_CREATION: 5/hour
+      
+      # Account Lockout
+      MAX_FAILED_LOGIN_ATTEMPTS: 5
+      LOCKOUT_DURATION_MINUTES: 30
+      PROGRESSIVE_DELAY_ENABLED: true
+      
+      # Email Configuration (optional)
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USERNAME: your-email@gmail.com
+      SMTP_PASSWORD: your-app-password
+      SMTP_USE_TLS: true
+      EMAIL_FROM: noreply@luftway.com
+      EMAIL_FROM_NAME: LuftWay
+      
+      # SMS Configuration (optional)
+      SMS_PROVIDER: twilio
+      SMS_API_KEY: your-twilio-account-sid
+      SMS_API_SECRET: your-twilio-auth-token
+      
+      # OAuth Configuration (optional)
+      GOOGLE_CLIENT_ID: your-google-client-id
+      GOOGLE_CLIENT_SECRET: your-google-client-secret
+      FACEBOOK_CLIENT_ID: your-facebook-client-id
+      FACEBOOK_CLIENT_SECRET: your-facebook-client-secret
+      APPLE_CLIENT_ID: your-apple-client-id
+      APPLE_TEAM_ID: your-apple-team-id
+      APPLE_KEY_ID: your-apple-key-id
+      APPLE_PRIVATE_KEY: your-apple-private-key
+      
+      # Tenant Configuration
+      TENANT_RESOLUTION_STRATEGY: subdomain
+      DEFAULT_TENANT_SLUG: luftway
+      TENANT_SLUG_PATTERN: '^[a-z0-9-]+$'
+      
+      # Security Headers
+      ENABLE_CSRF_PROTECTION: false
+      ENABLE_HSTS: true
+      ENABLE_CSP: true
+      
+      # Monitoring & Logging
+      LOG_LEVEL: INFO
+      ENABLE_AUDIT_LOGGING: true
+      ENABLE_METRICS: true
+      
+      # Feature Flags
+      ENABLE_MFA: true
+      ENABLE_SOCIAL_LOGIN: true
+      ENABLE_PASSWORD_RESET: true
+      ENABLE_USER_REGISTRATION: true
+      ENABLE_TENANT_CREATION: true
+      
+      # Scraping Configuration
+      SCRAPER_RATE_LIMIT: 2.0
+      SCRAPER_MAX_CONCURRENT: 5
+      SCRAPER_MAX_RETRIES: 3
+      SCRAPER_TIMEOUT: 30
+      
+      # Proxy Configuration (comma-separated list)
+      # Example: SCRAPER_PROXIES=http://proxy1:port,http://proxy2:port
+      SCRAPER_PROXIES: ""
+      
+      # Monitoring Configuration
+      MONITORING_RETENTION_HOURS: 24
+      MONITORING_SUCCESS_RATE_MIN: 0.8
+      MONITORING_RESPONSE_TIME_MAX: 10.0
+      MONITORING_ERROR_RATE_MAX: 0.2
+      MONITORING_CONSECUTIVE_FAILURES_MAX: 5
+      
+      # Alerting Configuration
+      # ALERT_WEBHOOK_URL: https://your-webhook-url.com/alerts
+      ALERT_WEBHOOK_URL: ""
+      ALERT_EMAIL_ENABLED: false
+      ALERT_MAX_ALERTS: 1000
+      
+      # Price Checking Configuration
+      PRICE_CHECK_ENABLED: true
+      PRICE_CHECK_INTERVAL_HOURS: 6
+      PRICE_CHECK_MAX_CONCURRENT: 10
+      PRICE_CHECK_MAX_AGE_HOURS: 24
+      
+      # Proxy Pool Configuration
+      PROXY_POOL_HEALTH_CHECK_INTERVAL: 300
+      PROXY_POOL_MAX_CONSECUTIVE_FAILURES: 3
+      PROXY_POOL_MIN_SUCCESS_RATE: 0.5
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # LuftWay Frontend
+  frontend:
+    build:
+      context: ./frontend/web-vite
+      dockerfile: Dockerfile
+      target: development
+    container_name: luftway-frontend
+    # No host port binding in base; Nginx will proxy to the container
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: luftway-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - luftway-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.1'
+        reservations:
+          memory: 128M
+          cpus: '0.05'
+
+# Named volumes for data persistence
+volumes:
+  redis_data:
+    driver: local
+
+# Custom network for service communication
+networks:
+  luftway-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
