@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# WindWays Backend Setup Script
-# This script sets up the development environment for the WindWays backend
+# Luftway Backend Setup Script
+# This script sets up the development environment for the Luftway backend
 
 set -e
 
-echo "🚀 Setting up WindWays Backend..."
+echo "🚀 Setting up Luftway Backend..."
 
 # Check if Python 3.11+ is installed
 python_version=$(python3 --version 2>&1 | awk '{print $2}' | cut -d. -f1,2)
@@ -43,9 +43,15 @@ pip install pytest pytest-asyncio pytest-cov black isort flake8 mypy
 # Create .env file if it doesn't exist
 if [ ! -f "backend/.env" ]; then
     echo "⚙️ Creating .env file..."
-    cat > backend/.env << EOF
+    # Use env.example as template if it exists, otherwise create from scratch
+    if [ -f "env.example" ]; then
+        echo "   📋 Using env.example as template..."
+        cp env.example backend/.env
+        echo "✅ .env file created from env.example. Please update the configuration values."
+    else
+        cat > backend/.env << EOF
 # Database
-DATABASE_URL=postgresql://windways_user:windways_password@localhost:5432/windways_auth
+DATABASE_URL=postgresql://luftway_user:luftway_password@localhost:5432/luftway_auth
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
@@ -55,8 +61,8 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
-JWT_ISSUER=windways-auth
-JWT_AUDIENCE=windways-api
+JWT_ISSUER=luftway-auth
+JWT_AUDIENCE=luftway-api
 
 # Password Security
 PASSWORD_MIN_LENGTH=8
@@ -88,8 +94,8 @@ SMTP_PORT=587
 SMTP_USERNAME=your-email@gmail.com
 SMTP_PASSWORD=your-app-password
 SMTP_USE_TLS=true
-EMAIL_FROM=noreply@windways.com
-EMAIL_FROM_NAME=WindWays
+EMAIL_FROM=noreply@luftway.com
+EMAIL_FROM_NAME=Luftway
 
 # SMS Configuration (optional)
 SMS_PROVIDER=twilio
@@ -128,7 +134,13 @@ ENABLE_PASSWORD_RESET=true
 ENABLE_USER_REGISTRATION=true
 ENABLE_TENANT_CREATION=true
 EOF
-    echo "✅ .env file created. Please update the configuration values."
+        echo "✅ .env file created. Please update the configuration values."
+    fi
+    echo ""
+    echo "⚠️  IMPORTANT: Update backend/.env with your actual configuration values!"
+    echo "   - Generate JWT_SECRET_KEY: openssl rand -hex 32"
+    echo "   - Set secure database passwords"
+    echo "   - Configure email/SMS/OAuth if needed"
 fi
 
 # Create logs directory

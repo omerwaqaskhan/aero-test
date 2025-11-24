@@ -59,8 +59,8 @@ class AuthConfig(BaseSettings):
     smtp_username: Optional[str] = Field(None, env="SMTP_USERNAME")
     smtp_password: Optional[str] = Field(None, env="SMTP_PASSWORD")
     smtp_use_tls: bool = Field(True, env="SMTP_USE_TLS")
-    email_from: str = Field("noreply@windways.com", env="EMAIL_FROM")
-    email_from_name: str = Field("WindWays", env="EMAIL_FROM_NAME")
+    email_from: str = Field("noreply@luftway.com", env="EMAIL_FROM")
+    email_from_name: str = Field("Luftway", env="EMAIL_FROM_NAME")
     
     # SMS Configuration (optional)
     sms_provider: Optional[str] = Field(None, env="SMS_PROVIDER")

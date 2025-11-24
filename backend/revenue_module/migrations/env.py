@@ -31,8 +31,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Get database URL from environment or use default
-database_url = os.getenv("DATABASE_URL", "postgresql://luftway_user:luftway_password@postgres:5432/luftway_auth_dev")
+# Get database URL from environment or use default placeholder
+database_url = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/dbname")
 config.set_main_option("sqlalchemy.url", database_url)
 
 # add your model's MetaData object here

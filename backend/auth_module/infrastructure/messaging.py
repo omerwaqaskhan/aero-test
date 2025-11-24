@@ -70,12 +70,12 @@ class EmailService:
         self,
         to_email: str,
         verification_token: str,
-        tenant_name: str = "WindWays"
+        tenant_name: str = "Luftway"
     ) -> bool:
         """Send email verification email."""
         subject = f"Verify your email address - {tenant_name}"
         
-        verification_url = f"https://app.windways.com/verify-email?token={verification_token}"
+        verification_url = f"https://app.luftway.com/verify-email?token={verification_token}"
         
         html_content = f"""
         <html>
@@ -105,12 +105,12 @@ class EmailService:
         self,
         to_email: str,
         reset_token: str,
-        tenant_name: str = "WindWays"
+        tenant_name: str = "Luftway"
     ) -> bool:
         """Send password reset email."""
         subject = f"Reset your password - {tenant_name}"
         
-        reset_url = f"https://app.windways.com/reset-password?token={reset_token}"
+        reset_url = f"https://app.luftway.com/reset-password?token={reset_token}"
         
         html_content = f"""
         <html>
@@ -146,7 +146,7 @@ class EmailService:
         self,
         to_email: str,
         mfa_code: str,
-        tenant_name: str = "WindWays"
+        tenant_name: str = "Luftway"
     ) -> bool:
         """Send MFA code via email."""
         subject = f"Your verification code - {tenant_name}"
@@ -362,7 +362,7 @@ class SMSService:
         self,
         to_phone: str,
         mfa_code: str,
-        tenant_name: str = "WindWays"
+        tenant_name: str = "Luftway"
     ) -> bool:
         """Send MFA code via SMS."""
         message = f"Your {tenant_name} verification code is: {mfa_code}. This code expires in 10 minutes."

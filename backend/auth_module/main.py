@@ -139,8 +139,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI application
 app = FastAPI(
-    title="WindWays Auth API",
-    description="Multi-tenant authentication and authorization service for WindWays travel platform",
+    title="Luftway Auth API",
+    description="Multi-tenant authentication and authorization service for Luftway travel platform",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -239,7 +239,7 @@ logger.info("Feature flags module loaded")
 async def root():
     """Root endpoint."""
     return {
-        "message": "WindWays Auth API",
+        "message": "Luftway Auth API",
         "version": "1.0.0",
         "status": "healthy"
     }

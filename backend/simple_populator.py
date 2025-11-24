@@ -255,7 +255,8 @@ def populate_hotels():
                 longitude=hotel_data["longitude"],
                 description=hotel_data["description"],
                 address=hotel_data.get("address"),
-                rating=hotel_data.get("star_rating"),  # Using rating field for stars
+                stars=int(hotel_data.get("star_rating", 0)) if hotel_data.get("star_rating") else 0,
+                rating=hotel_data.get("star_rating"),  # Average rating
                 amenities=hotel_data.get("amenities", []),
                 images=hotel_data.get("images", []),
                 provider=Provider.DIRECT,
@@ -292,7 +293,7 @@ def populate_hotels():
                     id=uuid.uuid4(),
                     hotel_id=hotel.id,
                     room_id=room_id,
-                    provider=Provider.DIRECT,
+                    provider="direct",
                     provider_rate_id=f"manual_{room_id.hex[:12]}",
                     currency="USD",
                     price=room_data["price"],
@@ -310,7 +311,7 @@ def populate_hotels():
                 review = ReviewModel(
                     id=uuid.uuid4(),
                     hotel_id=hotel.id,
-                    provider=Provider.DIRECT,
+                    provider="direct",
                     rating=review_data["rating"],
                     text=review_data["text"],
                     author=review_data.get("author", "Anonymous")

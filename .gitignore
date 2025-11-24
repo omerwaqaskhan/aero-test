@@ -80,6 +80,9 @@ dist
 # Gatsby files
 .cache/
 public
+# Exception: Allow public images directory for required assets
+!frontend/web-vite/public/images/
+!frontend/web-vite/public/images/**
 
 # Storybook build outputs
 .out
@@ -224,6 +227,10 @@ dmypy.json
 *.bak
 *.backup
 *.old
+
+# Database backup directories (contains actual database data)
+backups/
+!backups/.gitkeep
 
 # IDE files
 .vscode/

@@ -188,7 +188,7 @@ class TestMFAManager:
         """Test QR code generation."""
         secret = MFAManager.generate_totp_secret()
         email = "test@example.com"
-        issuer = "WindWays"
+        issuer = "Luftway"
         
         # Use the actual method name
         qr_code = MFAManager.generate_totp_qr_code(secret, email, issuer)

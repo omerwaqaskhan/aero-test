@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for WindWays Backend
+# Multi-stage Dockerfile for Luftway Backend
 FROM python:3.11-slim AS base
 
 # Set environment variables

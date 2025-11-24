@@ -123,7 +123,7 @@ export class AuthApi {
   async socialLogin(provider, accessToken, deviceInfo = null) {
     try {
       const response = await apiClient.post(`/v1/auth/social/${provider}`, {
-        tenant_slug: "windways", // Default tenant for now
+        tenant_slug: "luftway", // Default tenant for now
         provider: provider,
         access_token: accessToken,
         device_info: deviceInfo,

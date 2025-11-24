@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ../backups/postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U luftway_user -d luftway_auth_dev"]
       interval: 10s
@@ -261,6 +261,8 @@ services:
 
 # Named volumes for data persistence
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
 

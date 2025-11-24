@@ -221,7 +221,7 @@ class LeadService:
                 return
             
             # Get hotel email from source_url or use a default
-            hotel_email = getattr(hotel, 'hotel_email', None) or hotel.source_url or "info@windways.com"
+            hotel_email = getattr(hotel, 'hotel_email', None) or hotel.source_url or "info@luftway.com"
             
             subject = f"New Booking Inquiry - {hotel.name}"
             
@@ -262,7 +262,7 @@ class LeadService:
                     </p>
                     
                     <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                        This inquiry was generated through WindWays travel platform.
+                        This inquiry was generated through Luftway travel platform.
                     </p>
                 </div>
             </body>
@@ -290,7 +290,7 @@ class LeadService:
             
             Reply to guest: {lead.email}
             
-            This inquiry was generated through WindWays travel platform.
+            This inquiry was generated through Luftway travel platform.
             """
             
             await email_service.send_email(
@@ -339,7 +339,7 @@ class LeadService:
                     <p>You should receive a response from the hotel within 24 hours.</p>
                     
                     <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                        If you have any questions, please contact us at support@windways.com
+                        If you have any questions, please contact us at support@luftway.com
                     </p>
                 </div>
             </body>
@@ -361,7 +361,7 @@ class LeadService:
             
             You should receive a response from the hotel within 24 hours.
             
-            If you have any questions, please contact us at support@windways.com
+            If you have any questions, please contact us at support@luftway.com
             """
             
             await email_service.send_email(
