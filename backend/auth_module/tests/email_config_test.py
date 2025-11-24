@@ -50,9 +50,9 @@ async def test_email_configuration():
         try:
             await email_service.send_email(
                 to_email=test_email,
-                subject="Test Email - WindWays",
-                html_content="<h1>Test Email</h1><p>This is a test email from WindWays.</p>",
-                text_content="Test Email\n\nThis is a test email from WindWays."
+                subject="Test Email - Luftway",
+                html_content="<h1>Test Email</h1><p>This is a test email from Luftway.</p>",
+                text_content="Test Email\n\nThis is a test email from Luftway."
             )
             print(f"   ✅ Test email sent successfully to {test_email}")
             print("   Please check your inbox (and spam folder)")

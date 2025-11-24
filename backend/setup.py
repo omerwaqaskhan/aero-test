@@ -9,14 +9,14 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="windways-auth",
+    name="luftway-auth",
     version="1.0.0",
-    author="WindWays Team",
-    author_email="team@windways.com",
-    description="Multi-tenant authentication and authorization module for WindWays travel platform",
+    author="Luftway Team",
+    author_email="team@luftway.com",
+    description="Multi-tenant authentication and authorization module for Luftway travel platform",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/windways/auth-module",
+    url="https://github.com/luftway/auth-module",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -55,7 +55,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "windways-auth=auth_module.main:main",
+            "luftway-auth=auth_module.main:main",
         ],
     },
     include_package_data=True,

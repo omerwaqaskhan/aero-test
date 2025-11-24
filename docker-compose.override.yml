@@ -1,4 +1,4 @@
-# Development overrides for WindWays Platform
+# Development overrides for Luftway Platform
 # This file is automatically loaded by Docker Compose for development
 
 services:
@@ -28,7 +28,7 @@ services:
   # PostgreSQL development overrides
   postgres:
     environment:
-      POSTGRES_DB: windways_auth_dev
+      POSTGRES_DB: luftway_auth_dev
     ports:
       - "5433:5432"  # Use different port to avoid conflicts
 
