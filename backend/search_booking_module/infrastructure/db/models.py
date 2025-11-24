@@ -1,6 +1,6 @@
 """SQLAlchemy models for search and booking module."""
 
-from sqlalchemy import Column, String, Integer, Float, Boolean, Text, Date, DateTime, ForeignKey, JSON, Enum as SQLEnum
+from sqlalchemy import Column, String, Integer, Float, Boolean, Text, Date, DateTime, ForeignKey, JSON, Enum as SQLEnum, TypeDecorator
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
@@ -10,13 +10,36 @@ from auth_module.infrastructure.db.database import Base
 from search_booking_module.domain.models import Provider
 
 
+class ProviderEnum(TypeDecorator):
+    """Type decorator to ensure enum values are used instead of names."""
+    impl = String(20)
+    cache_ok = True
+    
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if isinstance(value, Provider):
+            return value.value
+        if isinstance(value, str):
+            return value
+        return str(value)
+    
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        try:
+            return Provider(value)
+        except ValueError:
+            return value
+
+
 class HotelModel(Base):
     """Hotel database model."""
     __tablename__ = "hotels"
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     provider_hotel_id = Column(String(255), nullable=False, index=True)
-    provider = Column(SQLEnum(Provider), nullable=False, index=True)
+    provider = Column(ProviderEnum(), nullable=False, index=True)
     name = Column(String(500), nullable=False)
     address = Column(JSON, nullable=False, default=dict)
     city = Column(String(255), nullable=False, index=True)
@@ -72,7 +95,7 @@ class OfferModel(Base):
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     hotel_id = Column(UUID(as_uuid=False), ForeignKey("hotels.id", ondelete="CASCADE"), nullable=False, index=True)
     room_id = Column(UUID(as_uuid=False), ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True, index=True)
-    provider = Column(SQLEnum(Provider), nullable=False, index=True)
+    provider = Column(ProviderEnum(), nullable=False, index=True)
     provider_rate_id = Column(String(255), nullable=False, index=True)
     currency = Column(String(10), nullable=False, default="USD")
     price = Column(Float, nullable=False)
@@ -101,7 +124,7 @@ class BookingClickModel(Base):
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(UUID(as_uuid=False), nullable=True, index=True)  # No FK constraint - references users table in auth_module
     offer_id = Column(UUID(as_uuid=False), ForeignKey("offers.id", ondelete="CASCADE"), nullable=False, index=True)
-    provider = Column(SQLEnum(Provider), nullable=False, index=True)
+    provider = Column(ProviderEnum(), nullable=False, index=True)
     affiliate_link = Column(Text, nullable=False)
     clicked_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
     ip_address = Column(String(45), nullable=False)
@@ -122,7 +145,7 @@ class ReviewModel(Base):
     
     id = Column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     hotel_id = Column(UUID(as_uuid=False), ForeignKey("hotels.id", ondelete="CASCADE"), nullable=False, index=True)
-    provider = Column(SQLEnum(Provider), nullable=False, index=True)
+    provider = Column(ProviderEnum(), nullable=False, index=True)
     rating = Column(Float, nullable=False)
     title = Column(String(500), nullable=True)  # Review title
     text = Column(Text, nullable=True)
